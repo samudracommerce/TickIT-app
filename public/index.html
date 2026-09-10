@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tick-IT — Helpdesk Divisi IT</title>
+<style>
+  :root{
+    --ink:#e6edf7; --ink-2:#b8c6dc; --ink-3:#94a5c0; --ink-4:#7385a3;
+    --line:#2a3f66; --line-2:#26395e; --line-3:#223456;
+    --bg:#0b1630; --bg-2:#10203f; --bg-3:#1a2f56;
+    --brand:#3b82f6; --brand-2:#1b3a6e; --dark:#08112a; --dark-2:#1a2f56; --gold:#d9a13b; --today:#ff6b6b;
+    --st-awaiting-bg:#3a2f12; --st-awaiting-fg:#f2c15c; --st-awaiting:#f0b429; --st-awaiting-bd:#6b5320;
+    --st-assigned-bg:#16305e; --st-assigned-fg:#8fb6ff; --st-assigned:#4f8ff7; --st-assigned-bd:#2d4f8f;
+    --st-on_progress-bg:#0f3a48; --st-on_progress-fg:#6fd3ea; --st-on_progress:#22b4d6; --st-on_progress-bd:#1f6a80;
+    --st-hold-bg:#2e2750; --st-hold-fg:#c2b3ff; --st-hold:#9b85e6; --st-hold-bd:#4e4386;
+    --st-done-bg:#123a26; --st-done-fg:#7fe0a3; --st-done:#3ec46f; --st-done-bd:#1f6b3d;
+    --st-cancelled-bg:#263248; --st-cancelled-fg:#c3ccd6; --st-cancelled:#7385a3; --st-cancelled-bd:#3a4a66;
+    --chart-closed:#94a3b8;
+    --day-w:105px; --row-h:36px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;font-size:13px;color:var(--ink);background:linear-gradient(160deg,#0b1630 0%,#0f2044 55%,#143060 100%) fixed;display:flex;flex-direction:column;min-height:100vh}
+  button{font:inherit;cursor:pointer}
+  select,input,textarea{font:inherit;color:var(--ink);outline:none}
+  select:focus,input:focus,textarea:focus{border-color:var(--brand)!important;box-shadow:0 0 0 2px rgba(59,130,246,.35);background:#142647!important}
+  ::placeholder{color:var(--ink-4)}
+  .hidden{display:none!important}
+  select option{background:#142647;color:#e6edf7}
+  input[type=date]{color-scheme:dark}
+
+  /* header */
+  .hdr{height:48px;flex-shrink:0;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+  .hdr .brand{display:flex;align-items:center;gap:12px}
+  .hdr .logo{width:26px;height:26px;border-radius:5px;background:var(--gold);display:inline-flex;align-items:center;justify-content:center}
+  .hdr .name{font-size:15px;font-weight:700}
+  .hdr .sub{font-size:13px;color:#7385a3}
+  .hdr .right{display:flex;align-items:center;gap:16px}
+  .hdr .link{font-size:12px;color:#7385a3;display:inline-flex;align-items:center;gap:6px}
+  .hdr .link i{width:7px;height:7px;border-radius:50%;background:var(--st-done)}
+  .hdr .role{height:28px;background:#1a2f56;color:#fff;border:1px solid #2a3f66;border-radius:4px;padding:0 8px;font-size:12px}
+  .hdr .bell{position:relative;display:inline-flex}
+  .hdr .bell b{position:absolute;top:-7px;right:-9px;background:var(--gold);color:var(--dark);font-size:10px;font-weight:700;border-radius:8px;padding:0 5px}
+  .hdr .avatar{width:28px;height:28px;border-radius:50%;background:var(--dark-2);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+
+  /* toolbar */
+  .toolbar{height:64px;flex-shrink:0;border-bottom:1px solid var(--line);background:rgba(8,17,42,.55);display:flex;align-items:center;padding:0 16px;gap:2px}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;border-radius:4px;font-weight:600;font-size:13px;line-height:1}
+  .btn-primary{background:var(--brand);color:#fff;height:36px;padding:0 14px}
+  .btn-primary:disabled{background:#3a4f78;cursor:not-allowed}
+  .btn-ghost{background:#142647;color:var(--ink-2);border-color:var(--line)}
+  .btn-danger{background:#142647;color:#ff8a80;border-color:#6b2a26}
+  .btn-block{width:100%;justify-content:center;padding:10px}
+  .tool{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 10px;min-width:56px;font-size:11px;color:var(--ink-2);background:none;border:0;border-radius:4px}
+  .tool:hover{background:rgba(255,255,255,.06)}
+  .sep{width:1px;height:40px;background:var(--line);margin:0 4px}
+  .search{display:flex;align-items:center;gap:8px;height:34px;width:260px;border:1px solid var(--line);border-radius:4px;padding:0 10px;background:#142647;margin-left:auto}
+  .search input{border:0;width:100%;font-size:13px;background:transparent}
+
+  /* tabs */
+  .tabs{height:40px;flex-shrink:0;border-bottom:1px solid var(--line);display:flex;align-items:stretch;padding:0 16px;gap:2px}
+  .tab{display:flex;align-items:center;gap:6px;padding:0 12px;font-size:13px;font-weight:500;color:var(--ink-2);border:0;border-bottom:2px solid transparent;background:none}
+  .tab i{width:8px;height:8px;border-radius:2px;background:currentColor}
+  .tab.active{color:var(--brand);font-weight:700;border-bottom-color:var(--brand)}
+  .tabs .filters{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3)}
+  .tabs select{height:28px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;background:#142647}
+  .legend{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--ink-3);margin-left:18px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend .sw{width:14px;height:8px;border-radius:2px;display:inline-block}
+
+  /* main */
+  main{flex:1;display:flex;min-height:0}
+  .view{flex:1;display:flex;min-height:0;min-width:0}
+
+  /* status pill */
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;line-height:1.3}
+  .pill i{width:6px;height:6px;border-radius:50%}
+  .pill.awaiting{background:var(--st-awaiting-bg);color:var(--st-awaiting-fg)} .pill.awaiting i{background:var(--st-awaiting)}
+  .pill.assigned{background:var(--st-assigned-bg);color:var(--st-assigned-fg)} .pill.assigned i{background:var(--st-assigned)}
+  .pill.on_progress{background:var(--st-on_progress-bg);color:var(--st-on_progress-fg)} .pill.on_progress i{background:var(--st-on_progress)}
+  .pill.hold{background:var(--st-hold-bg);color:var(--st-hold-fg)} .pill.hold i{background:var(--st-hold)}
+  .pill.done{background:var(--st-done-bg);color:var(--st-done-fg)} .pill.done i{background:var(--st-done)}
+  .pill.cancelled{background:var(--st-cancelled-bg);color:var(--st-cancelled-fg)} .pill.cancelled i{background:var(--st-cancelled)}
+  .tdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+  /* grid table */
+  .grid{display:grid;align-items:center;height:var(--row-h);border-bottom:1px solid var(--line-2);font-size:13px}
+  .grid>div{padding:0 12px;height:100%;display:flex;align-items:center;min-width:0;border-right:1px solid var(--line-3)}
+  .grid>div:last-child{border-right:0}
+  .grid.head{height:40px;background:var(--bg-3);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+  .grid.head>div{border-right-color:var(--line-2)}
+  .grid.row{cursor:pointer}
+  .grid.row:nth-child(even){background:rgba(255,255,255,.03)}
+  .grid.row:hover{background:rgba(59,130,246,.18)}
+  .grid .id{font-weight:700;color:var(--ink-3)}
+  .grid .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--row-h)}
+  .grid .two{flex-direction:column;justify-content:center;align-items:flex-start;line-height:1.2}
+  .grid .two small{font-size:11px;color:var(--ink-4)}
+  .grid .muted{color:var(--ink-4)}
+  .grid .dim{font-size:12px;color:var(--ink-2)}
+  .addrow{display:grid;align-items:center;height:var(--row-h);font-size:13px;color:var(--ink-4);font-style:italic;cursor:pointer}
+  .addrow div{padding:0 12px}
+  .empty{padding:32px;text-align:center;color:var(--ink-4)}
+  .avatar-s{width:20px;height:20px;border-radius:50%;background:var(--st-assigned-bg);color:var(--st-assigned-fg);font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;flex-shrink:0}
+  .avatar-s.none{background:transparent;border:1.5px dashed #3a4f78}
+
+  /* timeline */
+  .tl-left{width:892px;flex-shrink:0;border-right:2px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+  .tl-left .grid,.tl-left .addrow{grid-template-columns:90px 256px 138px 112px 126px 170px}
+  .tl-right{flex:1;overflow:auto;position:relative}
+  .tl-days{display:flex;height:40px;background:var(--bg-3);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
+  .tl-day{width:var(--day-w);flex-shrink:0;text-align:center;font-size:12px;font-weight:600;color:var(--ink-3);border-left:1px solid var(--line-2);display:flex;align-items:center;justify-content:center}
+  .tl-day.today{color:var(--brand);font-weight:700;background:var(--brand-2)}
+  .tl-day.weekend{color:var(--ink-4);background:rgba(0,0,0,.15)}
+  .tl-row{position:relative;height:var(--row-h);border-bottom:1px solid var(--line-2);cursor:pointer}
+  .tl-row:nth-child(even){background:rgba(255,255,255,.03)}
+  .tl-row:hover{background:rgba(59,130,246,.18)}
+  .tl-vline{position:absolute;top:0;bottom:0;border-left:1px solid var(--line-3)}
+  .tl-bar{position:absolute;top:8px;height:20px;border-radius:4px;overflow:hidden;border:1px solid}
+  .tl-bar .fill{position:absolute;left:0;top:0;height:100%}
+  .tl-bar .lbl{position:absolute;left:8px;top:2px;font-size:11px;font-weight:700}
+  .tl-bar.awaiting{border:2px dashed var(--st-awaiting);background:var(--st-awaiting-bg)}
+  .tl-bar.assigned{border-color:var(--st-assigned-bd);background:var(--st-assigned-bg)}
+  .tl-bar.on_progress{border-color:var(--st-on_progress-bd);background:var(--st-on_progress-bg)} .tl-bar.on_progress .fill{background:var(--st-on_progress)} .tl-bar.on_progress .lbl{color:var(--st-on_progress-fg)}
+  .tl-bar.hold{border-color:var(--st-hold-bd);background:var(--st-hold-bg)} .tl-bar.hold .fill{background:var(--st-hold)} .tl-bar.hold .lbl{color:var(--st-hold-fg)}
+  .tl-bar.done{border-color:var(--st-done-bd);background:var(--st-done)} .tl-bar.done .lbl{color:#fff}
+  .tl-bar.cancelled{border-color:var(--st-cancelled-bd);background:repeating-linear-gradient(135deg,#3a4a66 0 4px,#142647 4px 8px)}
+  .tl-after{position:absolute;top:11px;font-size:11px;color:var(--ink-3);white-space:nowrap}
+  .tl-today{position:absolute;top:0;bottom:0;border-left:2px solid var(--today);pointer-events:none;z-index:2}
+  .tl-today-lbl{position:absolute;top:4px;background:var(--today);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;z-index:3}
+
+  /* grid view */
+  .gv{flex:1;display:flex;flex-direction:column;overflow:auto}
+  .gv .grid,.gv .addrow{grid-template-columns:100px minmax(0,1fr) 190px 170px 160px 150px 120px 120px 120px}
+
+  /* report */
+  .rp{flex:1;overflow:auto;padding:20px 24px 24px;display:flex;flex-direction:column;gap:18px}
+  .rp-head{display:flex;align-items:flex-end;justify-content:space-between}
+  .rp-head h2{margin:0;font-size:20px;font-weight:700}
+  .rp-head p{margin:2px 0 0;font-size:13px;color:var(--ink-3)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:#142647}
+  .seg button{padding:7px 16px;font-size:13px;font-weight:600;border:0;background:#142647;color:var(--ink-2)}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.active{background:var(--brand);color:#fff}
+  .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .tile{background:#142647;border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+  .tile .k{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--ink-3)}
+  .tile .k i{width:10px;height:10px;border-radius:2px}
+  .tile .v{font-size:28px;font-weight:700;line-height:1}
+  .tile .n{font-size:12px;color:var(--ink-4)}
+  .card{background:#142647;border:1px solid var(--line);border-radius:6px}
+  .chart-card{padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+  .chart-head{display:flex;align-items:center;justify-content:space-between}
+  .chart-head h3{margin:0;font-size:14px;font-weight:700}
+  .chart-legend{display:flex;gap:16px;font-size:12px;color:var(--ink-2)}
+  .chart-legend span{display:inline-flex;align-items:center;gap:6px}
+  .chart-legend i{width:10px;height:10px;border-radius:2px}
+  .chart-wrap{position:relative}
+  .chart-wrap svg{width:100%;height:300px;display:block}
+  .chart-wrap .grp{cursor:default}
+  .chart-wrap .grp rect.hit{fill:transparent}
+  .chart-wrap .grp:hover rect.hit{fill:rgba(255,255,255,.06)}
+  .tip{position:absolute;pointer-events:none;background:var(--dark);color:#fff;font-size:12px;padding:8px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.2);line-height:1.5;transform:translate(-50%,calc(-100% - 8px))}
+  .tip b{display:block;margin-bottom:2px}
+  .rp-table .grid{grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;height:34px}
+  .rp-table .grid.head{height:36px}
+  .rp-table .grid>div{border-right:0}
+  .rp-table .r{justify-content:flex-end}
+
+  /* detail */
+  .dt{flex:1;overflow:auto;padding:16px 24px 24px;display:flex;flex-direction:column;gap:14px}
+  .back{display:inline-flex;align-items:center;gap:6px;color:var(--brand);font-weight:600;font-size:13px;border:0;background:none;padding:0;align-self:flex-start}
+  .dt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+  .dt-meta{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--ink-3);letter-spacing:.04em}
+  .dt-meta .tipe{display:inline-flex;align-items:center;gap:6px;font-weight:600;letter-spacing:0;color:var(--ink-2)}
+  .dt h1{margin:4px 0 0;font-size:22px;font-weight:700;line-height:1.25}
+  .dt-head .pill{font-size:13px;padding:6px 12px;margin-top:18px;flex-shrink:0}
+  .steps{padding:12px 16px;display:flex;align-items:center;gap:8px}
+  .step{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:3px;font-size:12px;font-weight:500;background:rgba(255,255,255,.04);color:var(--ink-4)}
+  .step i{width:7px;height:7px;border-radius:50%;background:#3a4a66}
+  .step.reached{background:var(--bg-3);color:var(--ink-2)} .step.reached i{background:var(--ink-4)}
+  .step.current{font-weight:700}
+  .steps .note{margin-left:auto;font-size:12px;color:var(--ink-3)}
+  .steps .arr{color:#7385a3;display:inline-flex}
+  .dt-cols{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:14px;align-items:start}
+  .dt-cols .col{display:flex;flex-direction:column;gap:14px}
+  .card.pad{padding:14px 16px}
+  .card h4{margin:0 0 8px;font-size:13px;font-weight:700}
+  .ket{font-size:13px;color:var(--ink-2);line-height:1.55;white-space:pre-line}
+  .ev{display:flex;gap:12px;padding:8px 0;border-top:1px solid var(--line-3)}
+  .ev i{display:block;width:9px;height:9px;border-radius:50%;margin-top:4px;flex-shrink:0}
+  .ev .k{display:flex;justify-content:space-between;gap:12px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  .ev .k time{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-4)}
+  .ev p{margin:2px 0 0;font-size:13px;color:var(--ink-2);line-height:1.45}
+  .kv{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0}
+  .kv span:first-child{color:var(--ink-4)} .kv span:last-child{text-align:right}
+  .actions{display:flex;flex-direction:column;gap:6px}
+  .actions select,.actions input{height:36px;border:1px solid var(--line);border-radius:4px;padding:0 10px;font-size:13px;background:#142647;width:100%}
+  .actions label{font-size:12px;color:var(--ink-3)}
+  .noact{font-size:13px;color:var(--ink-3);line-height:1.5}
+
+  /* role management */
+  .rm-head{display:flex;align-items:flex-end;justify-content:space-between}
+  .rm-head h2{margin:0;font-size:20px;font-weight:700}
+  .rm-head p{margin:2px 0 0;font-size:13px;color:var(--ink-3)}
+  .rm .grid{align-items:center}
+  .rm .grid.head{height:40px}
+  .rm .grid>div{border-right:0}
+  .rm .rolename b{display:block;font-size:13px}.rm .rolename small{font-size:11px;color:var(--ink-4)}
+  .rm select{height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;background:#10203f;color:var(--ink);max-width:100%}
+  .tgl{position:relative;width:36px;height:20px;border-radius:10px;background:#3a4f78;border:0;padding:0;flex-shrink:0;transition:background .15s}
+  .tgl::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+  .tgl.on{background:var(--brand)}.tgl.on::after{left:18px}
+  .tgl:disabled{opacity:.45;cursor:not-allowed}
+  .rm .locked{font-size:11px;color:var(--ink-4);margin-left:6px}
+  .rm-note{font-size:12px;color:var(--ink-3);padding:10px 14px;border-top:1px solid var(--line-3);line-height:1.5}
+  .rm .grid.row{cursor:default}
+  .rm .grid.row:hover{background:transparent}
+
+  /* footer */
+  footer{height:34px;flex-shrink:0;border-top:1px solid var(--line);background:rgba(8,17,42,.55);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:12px;color:var(--ink-3)}
+  footer .r{display:flex;gap:18px}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
+  .modal{width:600px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto;background:#142647;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column}
+  .modal-h{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:#0f2044;font-size:15px;font-weight:700}
+  .modal-h button{border:0;background:none;padding:4px;display:inline-flex}
+  .modal-b{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+  .modal-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--line);background:#0f2044}
+  .hint{font-size:13px;color:var(--ink-3);line-height:1.5}
+  .f2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:12px;font-weight:700;color:var(--ink-3)}
+  .field label em{color:var(--today);font-style:normal}
+  .field input,.field select,.field textarea{border:1.5px solid var(--line);border-radius:4px;padding:0 10px;font-size:13px;background:#10203f;height:38px}
+  .field textarea{min-height:96px;padding:8px 10px;line-height:1.5;resize:vertical}
+  .types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .type{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid var(--line);background:#142647;border-radius:4px;cursor:pointer;text-align:left}
+  .type .radio{width:16px;height:16px;border-radius:50%;border:2px solid #3a4f78;flex-shrink:0;margin-top:1px}
+  .type b{display:block;font-size:13px} .type small{display:block;font-size:11px;color:var(--ink-3);margin-top:2px;line-height:1.4}
+  .type.sel{border-color:var(--brand);background:rgba(59,130,246,.18)} .type.sel .radio{border-color:var(--brand);background:var(--brand)}
+  .btn-text{background:none;border:0;color:var(--ink-2);font-weight:600;padding:9px 14px}
+  .toast{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);background:var(--dark);color:#fff;font-size:13px;font-weight:600;padding:10px 16px;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:60;transition:opacity .3s}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="brand">
+    <span class="logo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#08112a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span>
+    <span class="name">Tick-IT</span>
+    <span class="sub" id="hdrSub">· Helpdesk divisi IT</span>
+  </div>
+  <div class="right">
+    <span class="link"><i></i>Terhubung ke Voyage</span>
+    <span class="sub" id="whoami" style="color:#b8c6dc"></span>
+    <button class="role" id="btnPass" title="Ganti password" style="cursor:pointer">Ganti password</button>
+    <button class="role" id="btnLogout" style="cursor:pointer">Keluar</button>
+    <span class="bell"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b8c6dc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><b id="bellCount">0</b></span>
+    <span class="avatar" id="avatar">SA</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="btn btn-primary" id="btnOpenForm" style="margin-right:10px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Buka tiket</button>
+  <span class="sep"></span>
+  <button class="tool" data-tool="assign"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Assign</button>
+  <button class="tool" data-tool="link"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Tautan</button>
+  <span class="sep"></span>
+  <button class="tool" data-tool="undo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>Undo</button>
+  <button class="tool" data-tool="redo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>Redo</button>
+  <span class="sep"></span>
+  <button class="tool" data-tool="filter"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><polygon points="3 5 21 5 14 13 14 19 10 21 10 13"/></svg>Filter</button>
+  <button class="tool" data-tool="zoom"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.5" y2="16.5"/><line x1="8" y1="11" x2="14" y2="11"/></svg>Zoom</button>
+  <span class="sep"></span>
+  <button class="tool" data-tool="save"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Simpan</button>
+  <button class="tool" data-tool="export"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Ekspor</button>
+  <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a5c0" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.5" y2="16.5"/></svg><input id="search" placeholder="Cari tiket, pemohon, engineer…"></label>
+</div>
+
+<div class="tabs">
+  <button class="tab" data-view="grid"><i></i>Grid</button>
+  <button class="tab" data-view="timeline"><i></i>Timeline</button>
+  <button class="tab" data-view="laporan"><i></i>Laporan</button>
+  <button class="tab" data-view="role"><i></i>Role</button>
+  <div class="filters" id="filters">
+    <span>Status</span>
+    <select id="fStatus">
+      <option value="all">Semua</option><option value="awaiting">Menunggu Assign</option><option value="assigned">Assigned</option><option value="on_progress">On Progress</option><option value="hold">Hold</option><option value="done">Done</option><option value="cancelled">Closed</option>
+    </select>
+    <span style="margin-left:8px">Tipe</span>
+    <select id="fType">
+      <option value="all">Semua tipe</option><option>Feature Request</option><option>Issue Troubleshooting</option><option>Division Support Needs</option><option>Others</option>
+    </select>
+    <div class="legend" id="tlLegend">
+      <span><i class="sw" style="border:2px dashed var(--st-awaiting);height:8px"></i>Menunggu assign</span>
+      <span><i class="sw" style="background:var(--st-on_progress)"></i>Progress</span>
+      <span><i class="sw" style="background:var(--st-done)"></i>Done</span>
+      <span><i class="sw" style="width:2px;height:12px;background:var(--today)"></i>Hari ini</span>
+    </div>
+  </div>
+</div>
+
+<main>
+  <section class="view" id="view-timeline">
+    <div class="tl-left">
+      <div class="grid head"><div>ID</div><div>Tiket</div><div>Tipe</div><div>Pemohon</div><div>Engineer</div><div>Status</div></div>
+      <div id="tlRows"></div>
+      <div class="addrow" data-add><div></div><div>Klik untuk tambah tiket…</div></div>
+    </div>
+    <div class="tl-right" id="tlRight">
+      <div class="tl-days" id="tlDays"></div>
+      <div id="tlBars" style="position:relative"></div>
+    </div>
+  </section>
+
+  <section class="view gv hidden" id="view-grid">
+    <div class="grid head"><div>ID</div><div>Tiket</div><div>Tipe</div><div>Pemohon</div><div>Engineer</div><div>Status</div><div>Dibuka</div><div>Target</div><div>Update</div></div>
+    <div id="gvRows"></div>
+    <div class="addrow" data-add><div></div><div>Klik untuk tambah tiket…</div></div>
+  </section>
+
+  <section class="view rp hidden" id="view-laporan">
+    <div class="rp-head">
+      <div><h2>Tiket yang masuk ke tim IT</h2><p id="rpSub"></p></div>
+      <div class="seg"><button data-period="weekly">Weekly</button><button data-period="monthly">Monthly</button></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="card chart-card">
+      <div class="chart-head">
+        <h3 id="chartTitle"></h3>
+        <div class="chart-legend"><span><i style="background:var(--st-done)"></i>Done</span><span><i style="background:var(--st-hold)"></i>Hold</span><span><i style="background:var(--chart-closed)"></i>Closed</span></div>
+      </div>
+      <div class="chart-wrap" id="chartWrap"></div>
+    </div>
+    <div class="card rp-table">
+      <div class="grid head"><div>Periode</div><div class="r">Masuk</div><div class="r">Done</div><div class="r">Hold</div><div class="r">Closed</div><div class="r">Done %</div></div>
+      <div id="rpRows"></div>
+    </div>
+  </section>
+
+  <section class="view dt hidden" id="view-detail"></section>
+  <section class="view rp hidden" id="view-role"></section>
+</main>
+
+<footer><div id="footL"></div><div class="r"><span id="footR"></span><span>Zoom: Hari</span></div></footer>
+
+<div class="overlay hidden" id="overlay">
+  <form class="modal" id="formTiket" novalidate>
+    <div class="modal-h">Buka tiket ke divisi IT<button type="button" id="btnCloseForm" aria-label="Tutup"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a5c0" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-b">
+      <p class="hint" style="margin:0">Semua tiket masuk ke antrean divisi IT dengan status <b style="color:var(--st-awaiting-fg)">Menunggu Assign</b>. Koordinator IT yang akan menentukan engineer dan target penyelesaiannya.</p>
+      <div class="f2">
+        <div class="field"><label>Nama <em>*</em></label><input name="nama" placeholder="Nama lengkap" required></div>
+        <div class="field"><label>Divisi <em>*</em></label>
+          <select name="divisi" required><option value="">Pilih divisi</option><option>Store Ops</option><option>Gudang</option><option>Merchandising</option><option>Finance</option><option>HR</option><option>Marketing</option><option>GA</option><option>IT</option></select></div>
+      </div>
+      <div class="field"><label>Tipe tiket <em>*</em></label>
+        <div class="types" id="types">
+          <button type="button" class="type" data-type="Feature Request"><span class="radio"></span><span><b>Feature Request</b><small>Fitur / perubahan baru di sistem atau aplikasi.</small></span></button>
+          <button type="button" class="type" data-type="Issue Troubleshooting"><span class="radio"></span><span><b>Issue Troubleshooting</b><small>Ada yang error, lambat, atau nggak jalan.</small></span></button>
+          <button type="button" class="type" data-type="Division Support Needs"><span class="radio"></span><span><b>Division Support Needs</b><small>Dukungan IT untuk kebutuhan divisi (setup, akses, perangkat).</small></span></button>
+          <button type="button" class="type" data-type="Others"><span class="radio"></span><span><b>Others</b><small>Nggak masuk tiga kategori di atas.</small></span></button>
+        </div>
+      </div>
+      <div class="field"><label>Keterangan tiket <em>*</em></label><textarea name="ket" placeholder="Apa yang terjadi / yang dibutuhkan, di mana, sejak kapan." required></textarea></div>
+    </div>
+    <div class="modal-f"><button type="button" class="btn-text" id="btnCancelForm">Batal</button><button type="submit" class="btn btn-primary" id="btnSubmit" disabled>Kirim tiket</button></div>
+  </form>
+</div>
+
+<script>
+/* =====================================================================
+   Tick-IT — frontend (single file, tanpa build step). Data dari REST API
+   (src/server.js). Hak akses dievaluasi di UI DAN dicek ulang di server.
+   Status mengikuti BRD/PRD Monitoring Dashboard:
+     awaiting (Menunggu Assign) → assigned → on_progress → done
+     cabang: hold, cancelled (ditampilkan sebagai "Closed")
+   ===================================================================== */
+
+const STATUS = {
+  awaiting:    { label: 'Menunggu Assign' },
+  assigned:    { label: 'Assigned' },
+  on_progress: { label: 'On Progress' },
+  hold:        { label: 'Hold' },
+  done:        { label: 'Done' },
+  cancelled:   { label: 'Closed' },
+};
+const TYPE_COLOR = { 'Feature Request': '#4f8ff7', 'Issue Troubleshooting': '#ff6b6b', 'Division Support Needs': '#3ec46f', 'Others': '#7385a3' };
+
+/* ---------- Role management (definisi kolom; nilai dari server) ---------- */
+const PERMS = [
+  ['create',      'Buka tiket',              'Membuat tiket baru ke divisi IT.'],
+  ['assign',      'Assign engineer',         'Menentukan engineer + target selesai; kembalikan tiket ke antrean.'],
+  ['status',      'Ubah status pengerjaan',  'Mulai, update progress, Hold, Lanjutkan, Set Done (tiket yang ditugaskan ke dirinya).'],
+  ['close',       'Tutup tiket',             'Menutup tiket (Closed) sebelum dikerjakan / dibatalkan.'],
+  ['report',      'Lihat laporan',           'Tab Laporan: diagram batang Done / Hold / Closed.'],
+  ['jobcard',     'Ambil Job Card',          'Cetak / simpan PDF job card tiket Done / Closed.'],
+  ['manageRoles', 'Kelola role & user',      'Mengubah hak akses role dan role tiap user.'],
+];
+const SCOPES = { own: 'Hanya tiket yang dibuatnya', assigned: 'Tiket yang ditugaskan ke dirinya', all: 'Semua tiket divisi IT' };
+
+/* ---------- API ---------- */
+async function api(path, opts = {}) {
+  const r = await fetch('/api' + path, { headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  if (r.status === 401) { location.href = '/login'; throw new Error('Sesi habis — silakan masuk lagi.'); }
+  const data = r.status === 204 ? null : await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data?.message || ({ forbidden: 'Role kamu tidak punya hak untuk aksi ini.', not_your_ticket: 'Tiket ini belum di tangan kamu.', locked: 'Role ini terkunci.', invalid_state: 'Status tiket tidak memungkinkan aksi ini.' }[data?.error] || 'Terjadi kesalahan (' + r.status + ').'));
+  return data;
+}
+const API = {
+  me: () => api('/me'),
+  tickets: () => api('/tickets'),
+  create: (b) => api('/tickets', { method: 'POST', body: b }),
+  assign: (id, b) => api(`/tickets/${id}/assign`, { method: 'POST', body: b }),
+  unassign: (id) => api(`/tickets/${id}/unassign`, { method: 'POST' }),
+  status: (id, b) => api(`/tickets/${id}/status`, { method: 'POST', body: b }),
+  close: (id, b) => api(`/tickets/${id}/close`, { method: 'POST', body: b }),
+  roles: () => api('/roles'),
+  putRole: (k, b) => api(`/roles/${k}`, { method: 'PUT', body: b }),
+  resetRoles: () => api('/roles/reset', { method: 'POST' }),
+  users: () => api('/users'),
+  addUser: (b) => api('/users', { method: 'POST', body: b }),
+  patchUser: (id, b) => api(`/users/${id}`, { method: 'PATCH', body: b }),
+  report: (p) => api('/report?period=' + p),
+  logout: () => api('/logout', { method: 'POST' }),
+  changePassword: (b) => api('/me/password', { method: 'POST', body: b }),
+};
+
+let CURRENT_USER = null;
+const DAY_W = 105, ROW_H = 36;
+function currentRole(){ return state.roles[CURRENT_USER.role] || { label: CURRENT_USER.role, scope: 'own', perms: {} }; }
+function can(perm){ return !!currentRole().perms[perm]; }
+function canSee(){ return true; } // server sudah memfilter sesuai cakupan role
+
+// ---------- tanggal ----------
+const TODAY = startOfDay(new Date());
+function startOfDay(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function iso(d){ return d.toISOString().slice(0,10); }
+function fromISO(s){ const [y,m,dd] = s.split('-').map(Number); return new Date(y, m-1, dd); }
+const HARI = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+function fmtDay(d){ return `${HARI[d.getDay()]} ${d.getDate()}`; }
+function fmtDate(d){ return `${HARI[d.getDay()]} ${d.getDate()} ${BULAN[d.getMonth()]}`; }
+function fmtDateTime(s){ const d = new Date(s); return `${fmtDate(d)}, ${String(d.getHours()).padStart(2,'0')}.${String(d.getMinutes()).padStart(2,'0')}`; }
+function ago(s){
+  const m = Math.round((Date.now() - new Date(s)) / 60000);
+  if (m < 1) return 'Baru saja'; if (m < 60) return m + ' mnt lalu';
+  const h = Math.round(m / 60); if (h < 24) return h + ' jam lalu';
+  const d = Math.round(h / 24); return d === 1 ? 'Kemarin' : d + ' hari lalu';
+}
+function at(dayOffset, hh, mm){ const d = addDays(TODAY, dayOffset); d.setHours(hh, mm, 0, 0); return d.toISOString(); }
+
+// ---------- state ----------
+const state = {
+  roles: {}, users: [], me: null,
+  view: 'timeline',        // grid | timeline | laporan | detail | role
+  selectedId: null,
+  statusFilter: 'all', typeFilter: 'all', q: '',
+  period: 'weekly', report: {},
+  tickets: [],
+};
+Object.defineProperty(state, 'role', { get(){ return CURRENT_USER?.role; } });
+async function loadAll(){
+  const [me, roles, users, tickets] = await Promise.all([API.me(), API.roles(), API.users(), API.tickets()]);
+  CURRENT_USER = me.user; state.me = me;
+  state.roles = Object.fromEntries(roles.map(r => [r.key, r]));
+  state.users = users; state.tickets = tickets;
+}
+async function reloadTickets(){ state.tickets = await API.tickets(); }
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const title = t => t.ket.split(/[.!?\n]/)[0];
+const first = n => n ? n.split(' ')[0] : '';
+const ini = n => n ? n.split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase() : '';
+const isTerminal = t => t.status === 'done' || t.status === 'cancelled';
+
+function visibleTickets(){
+  const q = state.q.trim().toLowerCase();
+  return state.tickets
+    .filter(canSee)
+    .filter(t => state.statusFilter === 'all' || t.status === state.statusFilter)
+    .filter(t => state.typeFilter === 'all' || t.tipe === state.typeFilter)
+    .filter(t => !q || [t.id, t.ket, t.nama, t.divisi, t.engineer, t.tipe].join(' ').toLowerCase().includes(q));
+}
+function pill(status){ return `<span class="pill ${status}"><i></i>${STATUS[status].label}</span>`; }
+function typeCell(tipe){ return `<span class="tdot" style="background:${TYPE_COLOR[tipe]}"></span><span class="ellip" style="margin-left:6px;font-size:12px">${esc(tipe)}</span>`; }
+function engCell(t){ return t.engineer ? `<span class="avatar-s">${ini(t.engineer)}</span><span>${esc(first(t.engineer))}</span>` : `<span class="avatar-s none"></span><span class="muted">—</span>`; }
+
+// ---------- render: kerangka ----------
+function render(){
+  // hak akses menentukan tab & tombol yang tampil
+  if (state.view === 'laporan' && !can('report')) state.view = 'timeline';
+  if (state.view === 'role' && !can('manageRoles')) state.view = 'timeline';
+  $('.tab[data-view="laporan"]').classList.toggle('hidden', !can('report'));
+  $('.tab[data-view="role"]').classList.toggle('hidden', !can('manageRoles'));
+  $('#btnOpenForm').classList.toggle('hidden', !can('create'));
+  document.querySelectorAll('[data-add]').forEach(el => el.classList.toggle('hidden', !can('create')));
+  $('#whoami').textContent = `${CURRENT_USER.nama} · ${currentRole().label}`;
+  $('#avatar').textContent = ini(CURRENT_USER.nama);
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+  ['timeline','grid','laporan','detail','role'].forEach(v => $('#view-' + v).classList.toggle('hidden', state.view !== v));
+  $('#filters').classList.toggle('hidden', !(state.view === 'grid' || state.view === 'timeline'));
+  $('#tlLegend').classList.toggle('hidden', state.view !== 'timeline');
+  const awaiting = state.tickets.filter(canSee).filter(t => t.status === 'awaiting').length;
+  $('#bellCount').textContent = awaiting;
+  $('#hdrSub').textContent = `· Helpdesk divisi IT · ${fmtDate(TODAY)}`;
+  if (state.view === 'timeline') renderTimeline();
+  if (state.view === 'grid') renderGrid();
+  if (state.view === 'laporan') renderReport();
+  if (state.view === 'detail') renderDetail();
+  if (state.view === 'role') renderRoles();
+  renderFooter();
+}
+
+function renderFooter(){
+  const mine = state.tickets.filter(canSee);
+  const c = k => mine.filter(t => t.status === k).length;
+  $('#footL').textContent = `${mine.length} tiket${currentRole().scope !== 'all' ? ' (' + SCOPES[currentRole().scope].toLowerCase() + ')' : ''} · ${c('awaiting')} menunggu assign · ${c('assigned') + c('on_progress')} dikerjakan · ${c('hold')} hold · ${c('done')} done · ${c('cancelled')} closed`;
+  const active = n => state.tickets.filter(t => t.engineer === n && !isTerminal(t)).length;
+  const engs = state.users.filter(u => u.role === 'engineer').map(u => u.nama);
+  $('#footR').textContent = currentRole().scope !== 'all' || !engs.length ? '' : 'Engineer aktif: ' + engs.map(n => `${first(n)} (${active(n)})`).join(' · ');
+}
+
+// ---------- render: timeline ----------
+function timelineRange(rows){
+  // rentang hari: Senin minggu ini s/d minimal Jumat, dilebarkan sesuai data
+  const dow = (TODAY.getDay() + 6) % 7; // 0 = Senin
+  let start = addDays(TODAY, -dow), end = addDays(start, 4);
+  rows.forEach(t => { const s = fromISO(t.start), e = fromISO(t.end); if (s < start) start = s; if (e > end) end = e; });
+  const days = []; for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
+  return days;
+}
+function renderTimeline(){
+  const rows = visibleTickets();
+  const days = timelineRange(rows);
+  const dayIndex = s => Math.round((fromISO(s) - days[0]) / 86400000);
+  $('#tlRows').innerHTML = rows.map(t => `
+    <div class="grid row" data-open="${t.id}">
+      <div class="id">${t.id}</div>
+      <div><span class="ellip">${esc(title(t))}</span></div>
+      <div>${typeCell(t.tipe)}</div>
+      <div class="two"><span>${esc(first(t.nama))}</span><small>${esc(t.divisi)}</small></div>
+      <div>${engCell(t)}</div>
+      <div>${pill(t.status)}</div>
+    </div>`).join('') || `<div class="empty">${emptyText()}</div>`;
+
+  $('#tlDays').innerHTML = days.map(d => `<div class="tl-day ${iso(d) === iso(TODAY) ? 'today' : ''} ${d.getDay() === 0 || d.getDay() === 6 ? 'weekend' : ''}">${fmtDay(d)}</div>`).join('');
+  const width = days.length * DAY_W;
+  const vlines = days.slice(1).map((_, k) => `<div class="tl-vline" style="left:${(k+1)*DAY_W}px"></div>`).join('');
+  $('#tlBars').style.width = width + 'px';
+  $('#tlBars').innerHTML = rows.map(t => {
+    const s0 = dayIndex(t.start), s1 = Math.max(s0, dayIndex(t.end));
+    const left = s0 * DAY_W + 6, w = (s1 - s0 + 1) * DAY_W - 12;
+    const fill = (t.prog > 0 && t.prog < 100) ? `<div class="fill" style="width:${t.prog}%"></div>` : '';
+    const lbl = t.prog ? `<span class="lbl">${t.prog}%</span>` : '';
+    const after = t.engineer ? `<span class="tl-after" style="left:${left + w + 8}px">${esc(first(t.engineer))}</span>` : '';
+    return `<div class="tl-row" data-open="${t.id}">${vlines}<div class="tl-bar ${t.status}" style="left:${left}px;width:${w}px">${fill}${lbl}</div>${after}</div>`;
+  }).join('') + (rows.length ? '' : `<div class="tl-row" style="cursor:default">${vlines}</div>`);
+  const todayIdx = Math.round((TODAY - days[0]) / 86400000);
+  const tx = todayIdx * DAY_W + DAY_W / 2;
+  $('#tlBars').insertAdjacentHTML('beforeend', `<div class="tl-today" style="left:${tx}px;top:-40px;bottom:0"></div><div class="tl-today-lbl" style="left:${tx - 26}px;top:-36px">HARI INI</div>`);
+}
+
+// ---------- render: grid ----------
+function renderGrid(){
+  const rows = visibleTickets();
+  $('#gvRows').innerHTML = rows.map(t => `
+    <div class="grid row" data-open="${t.id}">
+      <div class="id">${t.id}</div>
+      <div><span class="ellip">${esc(title(t))}</span></div>
+      <div>${typeCell(t.tipe)}</div>
+      <div class="two"><span>${esc(t.nama)}</span><small>${esc(t.divisi)}</small></div>
+      <div class="${t.engineer ? '' : 'muted'}">${esc(t.engineer || 'Belum ada')}</div>
+      <div>${pill(t.status)}</div>
+      <div class="dim">${fmtDate(fromISO(t.start))}</div>
+      <div class="dim">${t.status === 'awaiting' ? '—' : fmtDate(fromISO(t.end))}</div>
+      <div class="dim">${ago(t.updated)}</div>
+    </div>`).join('') || `<div class="empty">${emptyText()}</div>`;
+}
+function emptyText(){
+  if (state.tickets.filter(canSee).length === 0 && currentRole().scope === 'own') return can('create') ? 'Kamu belum punya tiket. Klik <b>Buka tiket</b> untuk mengajukan ke divisi IT.' : 'Kamu belum punya tiket.';
+  return 'Nggak ada tiket dengan filter ini.';
+}
+
+// ---------- render: laporan ----------
+function renderReport(){
+  const data = state.report[state.period];
+  if (!data) { API.report(state.period).then(r => { state.report[state.period] = r.buckets; if (state.view === 'laporan') render(); }).catch(e => toast(e.message)); $('#chartWrap').innerHTML = '<div class="empty">Memuat…</div>'; return; }
+  document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('active', b.dataset.period === state.period));
+  $('#rpSub').textContent = state.period === 'weekly' ? 'Per minggu · 8 minggu terakhir · dihitung dari tiket yang masuk ke divisi IT (status saat ini)' : 'Per bulan · 6 bulan terakhir · dihitung dari tiket yang masuk ke divisi IT (status saat ini)';
+  $('#chartTitle').textContent = state.period === 'weekly' ? 'Tiket per minggu — Done · Hold · Closed' : 'Tiket per bulan — Done · Hold · Closed';
+  const sum = k => data.reduce((a, g) => a + (g[k] || 0), 0);
+  const total = sum('total');
+  const tiles = [
+    { label:'Masuk ke IT', value: total, note: (state.period === 'weekly' ? '8 minggu terakhir' : '6 bulan terakhir') + ' · ' + sum('open') + ' masih berjalan', color:'var(--brand)' },
+    { label:'Done', value: sum('done'), note: (total ? Math.round(sum('done') / total * 100) : 0) + '% dari yang masuk', color:'var(--st-done)' },
+    { label:'Hold', value: sum('hold'), note:'masih menunggu pihak lain', color:'var(--st-hold)' },
+    { label:'Closed', value: sum('closed'), note:'ditutup tanpa dikerjakan', color:'var(--chart-closed)' },
+  ];
+  $('#tiles').innerHTML = tiles.map(k => `<div class="tile"><div class="k"><i style="background:${k.color}"></i>${k.label}</div><div class="v">${k.value}</div><div class="n">${k.note}</div></div>`).join('');
+  $('#rpRows').innerHTML = data.map(g => { const tot = g.total; return `
+    <div class="grid"><div>${g.labelLong}</div><div class="r">${tot}</div><div class="r">${g.done}</div><div class="r">${g.hold}</div><div class="r">${g.closed}</div><div class="r" style="color:var(--ink-3)">${tot ? Math.round(g.done / tot * 100) + '%' : '—'}</div></div>`; }).join('');
+  renderChart(data);
+}
+function renderChart(data){
+  const W = 1200, H = 300, padL = 36, padR = 12, padT = 16, padB = 28;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const maxV = Math.max(...data.map(g => Math.max(g.done, g.hold, g.closed)));
+  const step = maxV > 30 ? 10 : (maxV > 12 ? 5 : 2);
+  const top = Math.ceil(maxV / step) * step || step;
+  const y = v => padT + ih - (v / top) * ih;
+  const gw = iw / data.length, bw = 22, gap = 2;
+  const series = [['done','var(--st-done)'],['hold','var(--st-hold)'],['closed','var(--chart-closed)']];
+  let grid = '';
+  for (let v = 0; v <= top; v += step) grid += `<line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" stroke="#223456"/><text x="${padL - 6}" y="${y(v)}" text-anchor="end" dominant-baseline="middle" font-size="11" fill="#7385a3">${v}</text>`;
+  const groups = data.map((g, i) => {
+    const cx = padL + gw * i + gw / 2;
+    const x0 = cx - (bw * 3 + gap * 2) / 2;
+    const bars = series.map(([k, c], j) => { const h = ih * g[k] / top; return `<rect x="${x0 + j * (bw + gap)}" y="${y(g[k])}" width="${bw}" height="${h}" rx="4" fill="${c}"/>` + (h > 4 ? `<rect x="${x0 + j * (bw + gap)}" y="${y(g[k]) + h - 4}" width="${bw}" height="4" fill="${c}"/>` : ''); }).join('');
+    return `<g class="grp" data-i="${i}"><rect class="hit" x="${padL + gw * i + 4}" y="${padT}" width="${gw - 8}" height="${ih}" rx="4"/>${bars}<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="12" fill="#b8c6dc">${g.label}</text></g>`;
+  }).join('');
+  $('#chartWrap').innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="${padL}" x2="${padL}" y1="${padT}" y2="${padT + ih}" stroke="#2a3f66"/><line x1="${padL}" x2="${W - padR}" y1="${padT + ih}" y2="${padT + ih}" stroke="#2a3f66"/>${grid}${groups}</svg><div class="tip hidden" id="tip"></div>`;
+  const wrap = $('#chartWrap'), tip = $('#tip'), svg = wrap.querySelector('svg');
+  wrap.querySelectorAll('.grp').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      const g = data[+el.dataset.i]; const tot = g.total;
+      tip.innerHTML = `<b>${g.labelLong} · masuk ${tot}</b>Done ${g.done} · Hold ${g.hold} · Closed ${g.closed}`;
+      const r = el.querySelector('.hit').getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+      const maxH = Math.max(g.done, g.hold, g.closed);
+      const yTop = (y(maxH) / H) * svg.getBoundingClientRect().height;
+      tip.style.left = (r.left - wr.left + r.width / 2) + 'px'; tip.style.top = yTop + 'px';
+      tip.classList.remove('hidden');
+    });
+    el.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+  });
+}
+
+// ---------- render: detail ----------
+const KIND = { created:['Dibuka','#7385a3','#94a5c0'], assigned:['Assigned','var(--st-assigned)','var(--st-assigned-fg)'], on_progress:['On Progress','var(--st-on_progress)','var(--st-on_progress-fg)'], hold:['Hold','var(--st-hold)','var(--st-hold-fg)'], done:['Done','var(--st-done)','var(--st-done-fg)'], cancelled:['Closed','var(--st-cancelled)','var(--st-cancelled-fg)'] };
+function renderDetail(){
+  const t = state.tickets.find(x => x.id === state.selectedId);
+  if (!t || !canSee(t)) { state.view = 'timeline'; toast('Tiket ini di luar hak akses kamu.'); return render(); }
+  const path = ['awaiting','assigned','on_progress','done'];
+  const idx = path.indexOf(t.status);
+  const steps = path.map((k, i) => {
+    const reached = idx >= 0 ? i <= idx : (t.status === 'hold' ? i <= 2 : i <= 0);
+    const cur = k === t.status;
+    return `<span class="step ${cur ? 'current pill ' + k : (reached ? 'reached' : '')}"><i></i>${STATUS[k].label}</span>` + (i < 3 ? `<span class="arr"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="14 6 20 12 14 18"/></svg></span>` : '');
+  }).join('');
+  const note = t.status === 'hold' ? 'Ditahan — lanjut ke On Progress kalau blocker beres.' : t.status === 'cancelled' ? 'Tiket ditutup tanpa dikerjakan.' : 'Alur: assign → on progress → done (mengikuti Monitoring Dashboard).';
+  const events = [...t.events].reverse().map(e => `<div class="ev"><i style="background:${KIND[e.kind][1]}"></i><div style="flex:1;min-width:0"><div class="k" style="color:${KIND[e.kind][2]}"><span>${KIND[e.kind][0]}</span><time>${fmtDateTime(e.at)}</time></div><p>${esc(e.text)}</p></div></div>`).join('');
+
+  // aksi berdasarkan hak akses role (lihat DEFAULT_ROLES)
+  const me = CURRENT_USER.nama, term = isTerminal(t), mineToWork = t.engineer === me;
+  let actions = '';
+  if (can('assign') && t.status === 'awaiting') {
+    actions += `<label>Engineer IT</label><select id="actEng"><option value="">— pilih engineer —</option>${state.users.filter(u => u.role === 'engineer').map(u => `<option>${esc(u.nama)}</option>`).join('')}</select>
+      <label>Target selesai</label><input type="date" id="actTarget" value="${iso(addDays(fromISO(t.start), 2))}" min="${t.start}">
+      <button class="btn btn-primary btn-block" data-act="assign">Assign engineer</button>`;
+  }
+  if (can('status') && (mineToWork || can('assign'))) {
+    if (t.status === 'assigned') actions += `<button class="btn btn-primary btn-block" data-act="start">Mulai kerjakan</button>`;
+    if (t.status === 'on_progress') actions += `<label>Progress (%)</label><input type="range" id="actProg" min="0" max="100" step="5" value="${t.prog}" oninput="this.nextElementSibling.textContent=this.value+'%'"><span style="font-size:12px;color:var(--ink-3)">${t.prog}%</span>
+      <button class="btn btn-ghost btn-block" data-act="progress">Simpan progress</button><button class="btn btn-primary btn-block" data-act="done">Set Done</button><button class="btn btn-ghost btn-block" data-act="hold">Hold</button>`;
+    if (t.status === 'hold') actions += `<button class="btn btn-primary btn-block" data-act="resume">Lanjutkan</button>`;
+  }
+  if (can('assign') && !term && t.status !== 'awaiting') actions += `<button class="btn btn-ghost btn-block" data-act="unassign">Kembalikan ke antrean</button>`;
+  if (can('close') && !term && (currentRole().scope === 'all' || t.nama === me)) actions += `<button class="btn btn-danger btn-block" data-act="close">Tutup tiket</button>`;
+  if (term && can('jobcard')) actions = `<button class="btn btn-primary btn-block" data-act="jobcard"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>Ambil Job Card (PDF)</button><div class="noact">Job Card berisi log lengkap tiket ini, siap dicetak / disimpan sebagai PDF.</div>` + actions;
+  if (!actions) actions = `<div class="noact">${term ? 'Tiket sudah selesai.' : (can('status') && !mineToWork ? 'Tiket ini belum di tangan kamu.' : 'Nunggu update dari tim IT.')}</div>`;
+  const roleLabel = currentRole().label;
+
+  $('#view-detail').innerHTML = `
+    <button class="back" id="btnBack"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg>Kembali</button>
+    <div class="dt-head">
+      <div style="min-width:0"><div class="dt-meta"><span>${t.id}</span><span class="tipe"><span class="tdot" style="background:${TYPE_COLOR[t.tipe]}"></span>${esc(t.tipe)}</span></div><h1>${esc(title(t))}</h1></div>
+      ${pill(t.status)}
+    </div>
+    <div class="card steps">${steps}<span class="note">${note}</span></div>
+    <div class="dt-cols">
+      <div class="col">
+        <div class="card pad"><h4>Keterangan tiket</h4><div class="ket">${esc(t.ket)}</div></div>
+        <div class="card pad"><h4>Timeline</h4>${events}</div>
+      </div>
+      <div class="col">
+        <div class="card pad"><h4>Info</h4>
+          <div class="kv"><span>Pemohon</span><span style="font-weight:600">${esc(t.nama)}</span></div>
+          <div class="kv"><span>Divisi</span><span>${esc(t.divisi)}</span></div>
+          <div class="kv"><span>Ditujukan ke</span><span>Divisi IT</span></div>
+          <div class="kv"><span>Engineer</span><span style="${t.engineer ? '' : 'color:var(--ink-4)'}">${esc(t.engineer || 'Belum ada')}</span></div>
+          <div class="kv"><span>Dibuka</span><span>${fmtDateTime(t.created)}</span></div>
+          <div class="kv"><span>Target</span><span>${t.status === 'awaiting' ? '—' : fmtDate(fromISO(t.end))}</span></div>
+          <div class="kv"><span>Update terakhir</span><span>${ago(t.updated)}</span></div>
+        </div>
+        <div class="card pad"><h4>Aksi <span style="font-size:12px;font-weight:500;color:var(--ink-4)">· sebagai ${roleLabel}</span></h4><div class="actions" id="actions">${actions}</div></div>
+      </div>
+    </div>`;
+  $('#btnBack').onclick = () => { state.view = 'timeline'; render(); };
+  $('#actions').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) doAction(t, b.dataset.act); });
+}
+
+// ---------- render: role management ----------
+function renderRoles(){
+  const roles = state.roles;
+  const permCols = PERMS.map(([k, label]) => `<div title="${esc(label)}" style="justify-content:center;text-align:center;font-size:10px;line-height:1.3">${label}</div>`).join('');
+  const cols = `grid-template-columns:200px 220px repeat(${PERMS.length}, minmax(0,1fr))`;
+  const roleRows = Object.entries(roles).map(([key, r]) => `
+    <div class="grid row" style="${cols};height:auto;padding:8px 0">
+      <div class="rolename"><span><b>${esc(r.label)}</b><small>${esc(r.desc || '')}</small></span></div>
+      <div><select data-scope="${key}" ${r.locked ? 'disabled' : ''}>${Object.entries(SCOPES).map(([sk, sl]) => `<option value="${sk}" ${r.scope === sk ? 'selected' : ''}>${sl}</option>`).join('')}</select></div>
+      ${PERMS.map(([pk]) => `<div style="justify-content:center"><button class="tgl ${r.perms[pk] ? 'on' : ''}" data-role="${key}" data-perm="${pk}" ${r.locked ? 'disabled' : ''} aria-label="${esc(r.label)}: ${pk}"></button></div>`).join('')}
+    </div>`).join('');
+  const userRows = state.users.map(u => `
+    <div class="grid row" style="grid-template-columns:2fr 1.6fr 1fr 1.4fr 1.6fr 0.9fr;${u.active ? '' : 'opacity:.5'}">
+      <div><span class="avatar-s">${ini(u.nama)}</span>${esc(u.nama)}${u.id === CURRENT_USER.id ? ' <span class="locked">(kamu)</span>' : ''}</div>
+      <div class="dim">${esc(u.email)}</div>
+      <div>${esc(u.divisi)}</div>
+      <div><select data-user="${u.id}" ${u.id === CURRENT_USER.id ? 'disabled' : ''}>${Object.entries(roles).map(([k, r]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select></div>
+      <div class="dim">${SCOPES[roles[u.role]?.scope || 'own']}</div>
+      <div>${u.id === CURRENT_USER.id ? '' : `<button class="btn btn-ghost" data-toggle-active="${u.id}" style="height:28px;padding:0 10px;font-size:12px">${u.active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}</div>
+    </div>`).join('');
+  $('#view-role').innerHTML = `
+    <div class="rm-head">
+      <div><h2>Role &amp; hak akses</h2><p>Perubahan berlaku langsung di aplikasi ini. Default: <b>Pemohon hanya melihat tiket yang dibuatnya sendiri.</b></p></div>
+      <button class="btn btn-ghost" id="btnResetRoles" style="height:34px;padding:0 14px">Kembalikan ke default</button>
+    </div>
+    <div class="card rm">
+      <div class="grid head" style="${cols}"><div>Role</div><div>Tiket yang bisa dilihat</div>${permCols}</div>
+      ${roleRows}
+      <div class="rm-note">Role <b>Admin</b> terkunci (selalu penuh) supaya akses pengelolaan tidak bisa hilang. "Ubah status pengerjaan" hanya berlaku untuk tiket yang ditugaskan ke user itu sendiri, kecuali role-nya juga boleh assign. Di produksi, hak akses ini wajib dicek ulang di backend, bukan hanya di UI.</div>
+    </div>
+    <div class="card rm">
+      <div class="grid head" style="grid-template-columns:2fr 1.6fr 1fr 1.4fr 1.6fr 0.9fr"><div>User</div><div>Email</div><div>Divisi</div><div>Role</div><div>Cakupan tiket</div><div></div></div>
+      ${userRows}
+      <form id="addUserForm" class="grid row" style="grid-template-columns:2fr 1.6fr 1fr 1.4fr 1.6fr 0.9fr;height:auto;padding:8px 0;background:rgba(255,255,255,.03)" onsubmit="return false">
+        <div><input name="nama" placeholder="Nama lengkap" style="height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;background:#10203f;color:var(--ink);width:100%"></div>
+        <div><input name="email" type="email" placeholder="email@perusahaan" style="height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;background:#10203f;color:var(--ink);width:100%"></div>
+        <div><input name="divisi" placeholder="Divisi" style="height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;background:#10203f;color:var(--ink);width:100%"></div>
+        <div><select name="role">${Object.entries(roles).map(([k, r]) => `<option value="${k}" ${k === 'pemohon' ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select></div>
+        <div><input name="password" type="password" placeholder="Password awal (min. 8)" autocomplete="new-password" style="height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;background:#10203f;color:var(--ink);width:100%"></div>
+        <div><button type="button" class="btn btn-primary" id="btnAddUser" style="height:30px;padding:0 12px">Tambah</button></div>
+      </form>
+      <div class="rm-note">User login dengan email + password ini sampai plug-in Voyage (SSO) aktif. Role dan status akun kamu sendiri tidak bisa diubah dari sini.</div>
+    </div>`;
+  $('#view-role').onclick = async e => {
+    const sw = e.target.closest('.tgl'), reset = e.target.closest('#btnResetRoles'), add = e.target.closest('#btnAddUser'), tog = e.target.closest('[data-toggle-active]');
+    try {
+      if (sw) { const r = roles[sw.dataset.role]; await API.putRole(r.key, { perms: { [sw.dataset.perm]: !r.perms[sw.dataset.perm] } }); }
+      else if (reset) { if (!confirm('Kembalikan semua role ke pengaturan default?')) return; await API.resetRoles(); }
+      else if (tog) { const u = state.users.find(x => String(x.id) === tog.dataset.toggleActive); await API.patchUser(u.id, { active: !u.active }); }
+      else if (add) {
+        const f = $('#addUserForm'); const b = { nama: f.nama.value.trim(), email: f.email.value.trim(), divisi: f.divisi.value.trim(), role: f.role.value, password: f.password.value };
+        if (!b.nama || !b.email || !b.divisi || b.password.length < 8) return toast('Lengkapi nama, email, divisi, dan password (min. 8 karakter).');
+        await API.addUser(b); f.reset();
+      } else return;
+      await refreshAcl(); toast('Tersimpan.'); render();
+    } catch (x) { toast(x.message); }
+  };
+  $('#view-role').onchange = async e => {
+    try {
+      if (e.target.dataset.scope) await API.putRole(e.target.dataset.scope, { scope: e.target.value });
+      else if (e.target.dataset.user) await API.patchUser(e.target.dataset.user, { role: e.target.value });
+      else return;
+      await refreshAcl(); toast('Tersimpan.'); render();
+    } catch (x) { toast(x.message); render(); }
+  };
+}
+async function refreshAcl(){ const [me, roles, users] = await Promise.all([API.me(), API.roles(), API.users()]); CURRENT_USER = me.user; state.roles = Object.fromEntries(roles.map(r => [r.key, r])); state.users = users; }
+
+// ---------- aksi status (via API) ----------
+async function doAction(t, act){
+  const need = { assign:'assign', unassign:'assign', start:'status', progress:'status', done:'status', hold:'status', resume:'status', close:'close', jobcard:'jobcard' }[act];
+  if (need && !can(need)) return toast('Role kamu tidak punya hak untuk aksi ini.');
+  if (act === 'jobcard') return openJobCard(t);
+  try {
+    let updated;
+    switch (act) {
+      case 'assign': { const eng = $('#actEng').value, target = $('#actTarget').value; if (!eng) return toast('Pilih engineer dulu.'); updated = await API.assign(t.id, { engineer: eng, target }); break; }
+      case 'start': updated = await API.status(t.id, { status: 'on_progress' }); break;
+      case 'progress': updated = await API.status(t.id, { status: 'on_progress', prog: +$('#actProg').value }); break;
+      case 'done': { const note = prompt('Catatan hasil pekerjaan (opsional, masuk ke Job Card):') ?? ''; updated = await API.status(t.id, { status: 'done', note: note ? 'set Done — ' + note : '' }); break; }
+      case 'hold': { const note = prompt('Alasan Hold (opsional):') ?? ''; updated = await API.status(t.id, { status: 'hold', note: note ? 'set Hold — ' + note : '' }); break; }
+      case 'resume': updated = await API.status(t.id, { status: 'on_progress', note: 'lanjutkan pengerjaan.' }); break;
+      case 'unassign': updated = await API.unassign(t.id); break;
+      case 'close': { if (!confirm(`Tutup tiket ${t.id}? Tiket tidak akan dikerjakan.`)) return; const reason = prompt('Alasan tutup tiket (opsional):') ?? ''; updated = await API.close(t.id, { reason }); break; }
+    }
+    await reloadTickets(); state.report = {};
+    toast(`${t.id} → ${STATUS[updated.status].label}`); render();
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- Job Card (PDF) ----------
+function durasi(a, b){
+  let m = Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000));
+  const d = Math.floor(m / 1440); m -= d * 1440; const h = Math.floor(m / 60); m -= h * 60;
+  return [d ? d + ' hari' : '', h ? h + ' jam' : '', (m || (!d && !h)) ? m + ' mnt' : ''].filter(Boolean).join(' ');
+}
+function fmtLong(s){ const d = new Date(s); const H = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; return `${H[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()} · ${String(d.getHours()).padStart(2,'0')}.${String(d.getMinutes()).padStart(2,'0')}`; }
+function jobCardHTML(t){
+  const KC = { created:['Dibuka','#9aa3ad'], assigned:['Assigned','#2f6fd1'], on_progress:['On Progress','#1a8ca8'], hold:['Hold','#7a63c9'], done:['Done','#2f9e5f'], cancelled:['Closed','#9aa3ad'] };
+  const ev = [...t.events].sort((a, b) => new Date(a.at) - new Date(b.at));
+  const assigned = ev.find(e => e.kind === 'assigned'), last = ev.find(e => e.kind === 'done' || e.kind === 'cancelled') || ev[ev.length - 1];
+  const stBg = t.status === 'done' ? '#e4f4ea' : '#f1f2f4', stFg = t.status === 'done' ? '#1f6b3d' : '#5b6573', stDot = t.status === 'done' ? '#2f9e5f' : '#9aa3ad';
+  const now = new Date().toISOString();
+  const rows = ev.map(e => { const d = new Date(e.at); return `<tr><td class="mut nw">${HARI[d.getDay()]} ${d.getDate()} ${BULAN[d.getMonth()]}</td><td class="mut">${String(d.getHours()).padStart(2,'0')}.${String(d.getMinutes()).padStart(2,'0')}</td><td class="st nw"><i style="background:${KC[e.kind][1]}"></i>${KC[e.kind][0]}</td><td>${esc(e.text)}</td></tr>`; }).join('');
+  const kv = (k, v, wide) => `<div class="kv${wide ? ' wide' : ''}"><span>${k}</span><b>${v}</b></div>`;
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Job Card ${t.id} — Tick-IT</title>
+<style>
+  @page{size:A4;margin:14mm 12mm}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;color:#172b4d;font-size:13px}
+  .page{max-width:740px;margin:0 auto;padding:24px 0}
+  .hd{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:2px solid #1f2732}
+  .brand{display:flex;gap:12px;align-items:center}.logo{width:34px;height:34px;border-radius:6px;background:#d9a13b;display:inline-flex;align-items:center;justify-content:center}
+  .brand b{font-size:16px;display:block}.brand small{color:#5e6c84;font-size:12px}
+  .hd .r{text-align:right}.lab{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8993a4}.id{font-size:26px;font-weight:700}
+  .badge{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 10px;border-radius:3px;font-size:12px;font-weight:700;background:${stBg};color:${stFg}}.badge i{width:7px;height:7px;border-radius:50%;background:${stDot}}
+  .tipe{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#42526e;margin-top:14px}.tipe i{width:8px;height:8px;border-radius:50%;background:${TYPE_COLOR[t.tipe]}}
+  h1{font-size:20px;margin:4px 0 12px;line-height:1.3}
+  .info{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px;padding:12px 16px;background:#f4f5f7;border-radius:6px}
+  .kv span{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8993a4}.kv b{font-weight:400;font-size:14px}.kv.wide{grid-column:span 2}
+  h2{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5e6c84;margin:16px 0 0;padding-bottom:6px;border-bottom:1px solid #dfe1e6;display:flex;justify-content:space-between}
+  h2 small{font-weight:400;letter-spacing:0;text-transform:none;font-size:12px;color:#8993a4}
+  p{font-size:14px;line-height:1.55;color:#42526e;margin:8px 0 0;white-space:pre-line}
+  table{width:100%;border-collapse:collapse;margin-top:0}th{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5e6c84;background:#f4f5f7;padding:6px 10px;text-align:left;border-bottom:1px solid #dfe1e6}
+  td{padding:6px 10px;border-bottom:1px solid #eceef1;vertical-align:top;font-size:12.5px;line-height:1.4}td.mut{color:#5e6c84}td.st{font-weight:700;font-size:12px}td.st i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}.nw{white-space:nowrap}
+  tr{page-break-inside:avoid}thead{display:table-header-group}
+  .sign{display:flex;gap:20px;margin-top:22px;padding-top:16px;border-top:1px solid #dfe1e6;page-break-inside:avoid}.sign>div{flex:1}.sign .lab{letter-spacing:.06em}.box{height:48px;border:1px dashed #dfe1e6;border-radius:4px;margin:6px 0}.sign b{display:block;font-size:13px}.sign small{color:#8993a4;font-size:12px}
+  .ft{display:flex;justify-content:space-between;font-size:11px;color:#8993a4;margin-top:14px}
+  .bar{position:sticky;top:0;background:#1f2732;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;font-size:13px}.bar button{background:#0c66e4;color:#fff;border:0;border-radius:4px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+  @media print{.bar{display:none}.page{padding:0;max-width:none}}
+</style></head><body>
+<div class="bar"><span>Job Card ${t.id} — tekan <b>Cetak / Simpan PDF</b>, lalu pilih "Save as PDF" di dialog printer.</span><button onclick="window.print()">Cetak / Simpan PDF</button></div>
+<div class="page">
+  <div class="hd">
+    <div class="brand"><span class="logo"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1f2732" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><div><b>Tick-IT</b><small>Helpdesk Divisi IT · Samudra Retail Indonesia</small></div></div>
+    <div class="r"><div class="lab">Job Card</div><div class="id">${t.id}</div><div class="badge"><i></i>${STATUS[t.status].label}</div></div>
+  </div>
+  <div class="tipe"><i></i>${esc(t.tipe)}</div>
+  <h1>${esc(title(t))}</h1>
+  <div class="info">
+    ${kv('Pemohon', esc(t.nama))}${kv('Divisi', esc(t.divisi))}${kv('Ditujukan ke', 'Divisi IT')}${kv('Engineer IT', esc(t.engineer || '—'))}
+    ${kv('Dibuka', fmtLong(t.created))}${kv('Assigned', assigned ? fmtLong(assigned.at) : '—')}${kv('Target selesai', t.status === 'cancelled' && !assigned ? '—' : fmtDate(fromISO(t.end)))}${kv(t.status === 'done' ? 'Selesai' : 'Ditutup', fmtLong(last.at))}
+    ${kv('Waktu respon (buka → assign)', assigned ? durasi(t.created, assigned.at) : '—', true)}${kv(t.status === 'done' ? 'Durasi penyelesaian (buka → done)' : 'Durasi sampai ditutup', durasi(t.created, last.at), true)}
+  </div>
+  <h2>Keterangan tiket</h2><p>${esc(t.ket)}</p>
+  <h2>Log tiket <small>${ev.length} event · urut waktu</small></h2>
+  <table><thead><tr><th>Tanggal</th><th>Jam</th><th>Status</th><th>Keterangan</th></tr></thead><tbody>${rows}</tbody></table>
+  <h2>${t.status === 'done' ? 'Hasil pekerjaan' : 'Alasan ditutup'}</h2><p>${esc(last.text)}</p>
+  <div class="sign">
+    <div><div class="lab">Engineer IT</div><div class="box"></div><b>${esc(t.engineer || '—')}</b><small>Tanggal: ____ / ____ / ________</small></div>
+    <div><div class="lab">Koordinator IT</div><div class="box"></div><b>&nbsp;</b><small>Tanggal: ____ / ____ / ________</small></div>
+    <div><div class="lab">Pemohon</div><div class="box"></div><b>${esc(t.nama)} · ${esc(t.divisi)}</b><small>Tanggal: ____ / ____ / ________</small></div>
+  </div>
+  <div class="ft"><span>Dihasilkan otomatis oleh Tick-IT · dicetak ${fmtLong(now)} oleh ${esc(CURRENT_USER.nama)}</span><span>${t.id}</span></div>
+</div>
+</body></html>`;
+}
+function openJobCard(t){
+  const w = window.open('', '_blank');
+  if (!w) return toast('Pop-up diblokir browser — izinkan pop-up untuk membuka Job Card.');
+  w.document.open(); w.document.write(jobCardHTML(t)); w.document.close();
+}
+
+// ---------- form buka tiket ----------
+const form = $('#formTiket'); let formType = '';
+function openForm(){ form.reset(); formType = ''; form.nama.value = CURRENT_USER.nama; if (![...form.divisi.options].some(o => o.value === CURRENT_USER.divisi)) form.divisi.add(new Option(CURRENT_USER.divisi, CURRENT_USER.divisi)); form.divisi.value = CURRENT_USER.divisi; syncTypes(); validate(); $('#overlay').classList.remove('hidden'); form.nama.focus(); }
+function closeForm(){ $('#overlay').classList.add('hidden'); }
+function syncTypes(){ document.querySelectorAll('.type').forEach(b => b.classList.toggle('sel', b.dataset.type === formType)); }
+function validate(){ $('#btnSubmit').disabled = !(form.nama.value.trim() && form.divisi.value && formType && form.ket.value.trim()); }
+$('#types').addEventListener('click', e => { const b = e.target.closest('.type'); if (!b) return; formType = b.dataset.type; syncTypes(); validate(); });
+form.addEventListener('input', validate);
+form.addEventListener('submit', async e => {
+  e.preventDefault(); validate(); if ($('#btnSubmit').disabled) return;
+  $('#btnSubmit').disabled = true;
+  try {
+    const t = await API.create({ tipe: formType, nama: form.nama.value.trim(), divisi: form.divisi.value, ket: form.ket.value.trim() });
+    await reloadTickets(); state.report = {};
+    closeForm(); state.statusFilter = 'all'; state.typeFilter = 'all'; $('#fStatus').value = 'all'; $('#fType').value = 'all';
+    if (state.view === 'detail' || state.view === 'laporan' || state.view === 'role') state.view = 'timeline';
+    toast(`${t.id} terkirim ke divisi IT`); render();
+  } catch (x) { toast(x.message); $('#btnSubmit').disabled = false; }
+});
+$('#btnOpenForm').onclick = openForm; $('#btnCloseForm').onclick = closeForm; $('#btnCancelForm').onclick = closeForm;
+$('#overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeForm(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeForm(); });
+
+// ---------- events global ----------
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => { state.view = b.dataset.view; render(); });
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { state.period = b.dataset.period; render(); });
+$('#fStatus').onchange = e => { state.statusFilter = e.target.value; render(); };
+$('#fType').onchange = e => { state.typeFilter = e.target.value; render(); };
+$('#search').oninput = e => { state.q = e.target.value; if (state.view === 'detail') state.view = 'timeline'; render(); };
+$('#btnLogout').onclick = async () => { await API.logout(); location.href = '/login'; };
+$('#btnPass').onclick = async () => {
+  const current = prompt('Password lama:'); if (current === null) return;
+  const next = prompt('Password baru (min. 8 karakter):'); if (next === null) return;
+  try { await API.changePassword({ current, next }); toast('Password diganti.'); } catch (e) { toast(e.message); }
+};
+document.body.addEventListener('click', e => {
+  const row = e.target.closest('[data-open]'); if (row) { state.selectedId = row.dataset.open; state.view = 'detail'; render(); return; }
+  if (e.target.closest('[data-add]')) openForm();
+  const tool = e.target.closest('[data-tool]'); if (tool) toast({ assign:'Pilih tiket dulu, lalu assign dari panel detail.', link:'Tautan ke tiket disalin (demo).', undo:'Undo — belum diimplementasikan.', redo:'Redo — belum diimplementasikan.', filter:'Pakai filter Status / Tipe di bawah toolbar.', zoom:'Zoom timeline — belum diimplementasikan.', save:'Perubahan tersimpan otomatis.', export:'Ekspor CSV/PDF — belum diimplementasikan.' }[tool.dataset.tool]);
+});
+
+let toastTimer;
+function toast(msg){ let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = msg; el.style.opacity = 1; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.opacity = 0, 2600); }
+
+loadAll().then(render).catch(e => { if (!/Sesi habis/.test(e.message)) { document.body.insertAdjacentHTML('beforeend', `<div class="toast">${esc(e.message)}</div>`); } });
+</script>
+</body>
+</html>

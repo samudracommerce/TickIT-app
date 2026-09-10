@@ -1,0 +1,8 @@
+node_modules/
+data/
+.env
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+_to_delete/
+coolify-deploy-summary.txt

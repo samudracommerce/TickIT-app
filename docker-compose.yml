@@ -1,0 +1,10 @@
+# Opsional: jalankan lokal dengan Docker (Coolify bisa juga memakai file ini sebagai Build Pack "Docker Compose")
+services:
+  tick-it:
+    build: .
+    ports: ["3000:3000"]
+    env_file: .env
+    volumes: ["tickit-data:/data"]
+    restart: unless-stopped
+volumes:
+  tickit-data:
