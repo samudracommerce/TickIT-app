@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Masuk dulu — Tick-IT</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;color:#e6edf7;background:linear-gradient(160deg,#0b1630 0%,#0f2044 55%,#143060 100%)}
+  .wrap{width:100%;max-width:430px;text-align:center}
+  .logo{width:46px;height:46px;border-radius:10px;background:#d9a13b;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px}
+  h1{margin:0;font-size:30px;letter-spacing:-.4px}
+  .sub{margin:6px 0 22px;color:#94a5c0;font-size:14px}
+  .card{background:#142647;border:1px solid #2a3f66;border-radius:10px;padding:24px;text-align:left;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .card h2{margin:0 0 10px;font-size:17px}
+  .card p{margin:0 0 18px;font-size:14px;line-height:1.65;color:#bccbe2}
+  a.primary{display:flex;align-items:center;justify-content:center;height:46px;border-radius:6px;background:#d9a13b;color:#1f2732;font-weight:700;text-decoration:none}
+  a.primary:hover{background:#e6b657}
+  .after{margin-top:16px;font-size:13px;color:#7385a3;line-height:1.6}
+  .after a{color:#9db4d8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2732" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span>
+  <h1>Tick-IT</h1>
+  <div class="sub">Helpdesk divisi IT — armada Samudra</div>
+
+  <div class="card">
+    <h2>Belum bisa masuk ke Tick-IT</h2>
+    <p>
+      Sesi Voyage-mu terbaca, tapi Tick-IT belum bisa memakainya. Biasanya karena akunmu
+      belum diberi akses ke Tick-IT — minta admin Voyage menyalakannya lewat
+      <strong>Manage &rarr; Apps</strong>. Bisa juga karena sesimu sudah kedaluwarsa, atau
+      Voyage sedang tak bisa dihubungi dari sini.
+    </p>
+    <a class="primary" id="voyageBtn" href="#">Buka Voyage</a>
+    <div class="after">
+      Sudah diberi akses tapi masih tertahan? Muat ulang halaman ini dulu.<br>
+      Kalau Voyage memang sedang bermasalah, admin Tick-IT masih bisa lewat
+      <a id="localLogin" href="#">login email Tick-IT</a>.
+    </div>
+  </div>
+</div>
+<script>
+  // window.__BASE__ & window.__VOYAGE__ disuntik server (lihat SHIM() di src/server.js).
+  // Halaman ini SENGAJA tidak meredirect otomatis: kalau ia melempar balik ke Voyage sementara
+  // sesi Voyage-nya sah, Voyage akan melempar ke sini lagi — loop tak berujung, persis bug yang
+  // halaman ini dibuat untuk menghentikan.
+  document.getElementById('voyageBtn').href = window.__VOYAGE__ || '/';
+  document.getElementById('localLogin').href = (window.__BASE__ || '') + '/login';
+</script>
+</body>
+</html>

@@ -16,8 +16,17 @@
 
 const WHOAMI_URL = process.env.VOYAGE_WHOAMI_URL || 'http://coolify-proxy/api/v1/whoami';
 const WHOAMI_HOST = process.env.VOYAGE_WHOAMI_HOST || 'voyage.samudracommerce.com';
-const VOYAGE_PUBLIC_BASE = (process.env.VOYAGE_PUBLIC_BASE_URL || 'https://voyage.samudracommerce.com').replace(/\/$/, '');
+export const VOYAGE_PUBLIC_BASE = (process.env.VOYAGE_PUBLIC_BASE_URL || 'https://voyage.samudracommerce.com').replace(/\/$/, '');
 const SERVICE_KEY = process.env.TICKIT_VOYAGE_SERVICE_KEY || '';
+
+// Kandidat endpoint whoami, DICOBA BERURUTAN. Yang pertama jalur internal Coolify: cepat, tak
+// lewat internet. Tapi jalur itu bergantung pada override header `Host` — dan `Host` adalah
+// FORBIDDEN HEADER di spesifikasi fetch, jadi undici (fetch bawaan Node) boleh membuangnya
+// diam-diam. Kalau dibuang, request sampai ke proxy dgn Host: coolify-proxy, Traefik tak tahu
+// harus melempar ke Voyage, dan balasannya non-OK. Kandidat kedua = URL publik, yang tak butuh
+// override apa pun. Hanya dipakai kalau yang pertama gagal, jadi jalur cepat tetap yang utama.
+const PUBLIC_WHOAMI = `${VOYAGE_PUBLIC_BASE}/api/v1/whoami`;
+const WHOAMI_CANDIDATES = [...new Set([WHOAMI_URL, PUBLIC_WHOAMI])];
 
 // Sama persis dgn normalizeBase() di server.js (fix Farhan, commit 551f731) — prefiks sub-path
 // dibaca dgn urutan preferensi yg sama, supaya "next=" yg kita kirim ke Voyage dan BASE yg dipakai
@@ -41,23 +50,42 @@ const cache = new Map(); // token -> { data, exp }
 const CACHE_MS = 30_000;
 
 export async function whoami(token) {
-  if (!token || !SERVICE_KEY) return null;
+  if (!token || !SERVICE_KEY) return null;   // lalu-lintas anonim itu normal — sengaja tak di-log
   const hit = cache.get(token);
   if (hit && hit.exp > Date.now()) return hit.data;
+
   let data = null;
-  try {
-    const res = await fetch(WHOAMI_URL, {
-      headers: { Host: WHOAMI_HOST, 'X-Api-Key': SERVICE_KEY, Cookie: `lapor_session=${token}` },
-      signal: AbortSignal.timeout(3000), // jangan sampai request TickIT nyangkut kalau Voyage lambat/down
-    });
-    if (res.ok) {
-      const body = await res.json();
-      if (body?.email && ['aktif', 'leaving'].includes(body.status)) data = body;
+  for (const url of WHOAMI_CANDIDATES) {
+    const headers = { 'X-Api-Key': SERVICE_KEY, Cookie: `lapor_session=${token}` };
+    // Host hanya perlu di-override kalau URL-nya BUKAN host Voyage sebenarnya (jalur internal).
+    let internal = false;
+    try { internal = new URL(url).host !== WHOAMI_HOST; } catch { /* URL aneh: jangan override */ }
+    if (internal) headers.Host = WHOAMI_HOST;
+    try {
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(3000) });
+      if (!res.ok) {
+        // GAGAL DIAM-DIAM ITU RACUN. Tanpa baris ini, whoami yang ditolak 401/403/404 tak
+        // meninggalkan jejak apa pun di log, dan satu-satunya gejala yang terlihat user adalah
+        // halaman yang "gagal dimuat" (sebenarnya redirect loop). Cuplikan body dipotong dan
+        // diratakan; token & X-Api-Key TIDAK pernah ikut ter-log.
+        const snippet = (await res.text().catch(() => '')).slice(0, 180).replace(/\s+/g, ' ').trim();
+        console.warn(`[tick-it/sso] whoami ditolak: HTTP ${res.status} dari ${url}` + (snippet ? ` — ${snippet}` : ''));
+        continue;
+      }
+      const body = await res.json().catch(() => null);
+      if (!body?.email) { console.warn(`[tick-it/sso] whoami 200 tapi body tanpa email (${url}).`); continue; }
+      if (!['aktif', 'leaving'].includes(body.status)) {
+        console.warn(`[tick-it/sso] status orang "${body.status}" tidak diterima TickIT.`);
+        continue;
+      }
+      if (url !== WHOAMI_CANDIDATES[0]) console.warn(`[tick-it/sso] jalur utama gagal — identitas didapat dari cadangan ${url}.`);
+      data = body;
+      break;
+    } catch (e) {
+      // Voyage tak terjangkau/timeout -> "belum terverifikasi", BUKAN "ditolak permanen":
+      // user tetap bisa masuk lewat login lokal TickIT (lihat public/login.html).
+      console.warn(`[tick-it/sso] whoami gagal (${url}):`, e.message);
     }
-  } catch (e) {
-    // Voyage tak terjangkau/timeout -> perlakukan sebagai "belum terverifikasi", BUKAN "ditolak
-    // permanen": user tetap bisa lanjut lewat login lokal TickIT (lihat public/login.html).
-    console.warn('[tick-it/sso] whoami gagal:', e.message);
   }
   if (data) cache.set(token, { data, exp: Date.now() + CACHE_MS });
   else cache.delete(token);

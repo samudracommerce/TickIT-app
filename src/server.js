@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { db, getRole, publicUser } from './db.js';
 import { attachUser, verifyPassword, hashPassword, requireLogin, provisionFromVoyage } from './auth.js';
-import { whoami, loginUrl, readCookie, BASE } from './sso.js';
+import { whoami, loginUrl, readCookie, BASE, VOYAGE_PUBLIC_BASE } from './sso.js';
 import tickets from './routes/tickets.js';
 import { roles, users, report } from './routes/admin.js';
 
@@ -106,7 +106,8 @@ app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 // lagi. location.href / <a href> tak bisa dibungkus (properti, bukan fungsi) — ditulis eksplisit
 // pakai window.__BASE__ di public/*.html (lihat commit 551f731 utk index.html, dan login.html
 // utk tombol SSO).
-const SHIM = (base) => `<script>window.__BASE__=${JSON.stringify(base)};`
+const SHIM = (base, voyage) => `<script>window.__BASE__=${JSON.stringify(base)};`
+  + `window.__VOYAGE__=${JSON.stringify(voyage)};`
   + `(function(b){if(!b)return;var f=window.fetch.bind(window);`
   + `window.fetch=function(u,o){if(typeof u==="string"&&u.charAt(0)==="/"&&u.indexOf(b+"/")!==0)u=b+u;return f(u,o);};})(window.__BASE__);`
   + `</script>`;
@@ -114,20 +115,30 @@ const pages = new Map();
 function page(nama) {
   if (!pages.has(nama) || !PROD) {          // dev: baca ulang tiap permintaan
     const html = fs.readFileSync(path.join(__dirname, '..', 'public', nama), 'utf8');
-    pages.set(nama, html.includes('</head>') ? html.replace('</head>', SHIM(BASE) + '</head>')
-                                             : SHIM(BASE) + html);
+    pages.set(nama, html.includes('</head>') ? html.replace('</head>', SHIM(BASE, VOYAGE_PUBLIC_BASE) + '</head>')
+                                             : SHIM(BASE, VOYAGE_PUBLIC_BASE) + html);
   }
   return pages.get(nama);
 }
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: PROD ? '1h' : 0 }));
 app.get('/login', (_req, res) => res.type('html').send(page('login.html')));
 app.get('*', (req, res) => {
-  // Belum login & bridge SSO di atas tak berhasil (tak ada cookie Voyage / gagal verifikasi) ->
-  // langsung ke Voyage (SSO mulus kalau user sudah login di Voyage; loginUrl() sudah tambah BASE
-  // ke next= supaya baliknya benar). Halaman /login TickIT sendiri (dgn form email+password)
-  // tetap bisa diakses manual sebagai jalur cadangan kalau Voyage down.
-  if (!req.user) return res.redirect(loginUrl(req.originalUrl));
-  res.type('html').send(page('index.html'));
+  if (req.user) return res.type('html').send(page('index.html'));
+
+  // TAK ADA cookie Voyage sama sekali -> orangnya memang belum login. Lempar ke Voyage; ini
+  // BERHENTI, karena di sana dia disambut form login. loginUrl() sudah menambahkan BASE ke next=
+  // supaya sesudah login dia balik ke path TickIT yang benar.
+  if (!readCookie(req, 'lapor_session')) return res.redirect(loginUrl(req.originalUrl));
+
+  // ADA cookie Voyage, tapi bridge SSO di atas gagal membuat sesi — whoami ditolak, orangnya
+  // belum di-grant akses ke TickIT di /manage/apps, atau Voyage sedang tak bisa dihubungi.
+  //
+  // JANGAN redirect ke Voyage di cabang ini. Voyage akan melihat sesi yang sah, melempar balik
+  // ke sini, bridge gagal lagi, lempar lagi — REDIRECT LOOP tak berujung yang di browser cuma
+  // tampak sebagai "halaman gagal dimuat", tanpa satu pun petunjuk kenapa. Itu persis gejala
+  // yang kita kejar seharian. Jadi: berhenti di sini dan katakan apa adanya, pola yang sama
+  // dipakai Hands. 403 (bukan 200) supaya monitoring & log tetap jujur.
+  res.status(403).type('html').send(page('gate.html'));
 });
 
 app.use((err, _req, res, _next) => { console.error(err); res.status(500).json({ error: 'server_error' }); });
