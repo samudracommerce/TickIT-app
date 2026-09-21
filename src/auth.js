@@ -3,6 +3,7 @@
 // Login email+password TETAP ADA sebagai jalur cadangan (break-glass) kalau Voyage sedang down —
 // jangan dihapus, ini bukan sisa migrasi yang lupa dibuang.
 import crypto from 'node:crypto';
+import { BASE } from './sso.js';
 
 export function hashPassword(pw) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -42,7 +43,7 @@ export function provisionFromVoyage(db, who) {
   }
   const roleKeys = new Set(['pemohon', 'engineer', 'koordinator', 'admin']);
   const appEntry = Array.isArray(who.apps)
-    ? who.apps.find(a => a?.base_path === '/Tick-IT' || String(a?.app || '').toLowerCase().includes('tick'))
+    ? who.apps.find(a => a?.base_path === BASE || String(a?.app || '').toLowerCase().includes('tick'))
     : null;
   const guessedRole = String(appEntry?.role || '').toLowerCase();
   // Default aman kalau role dari Voyage tidak dikenali/kosong: 'pemohon' (hak paling rendah).

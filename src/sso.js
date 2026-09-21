@@ -1,7 +1,7 @@
 // Tick-IT — jembatan SSO ke Voyage.
-// TickIT dipasang di path /Tick-IT di bawah domain Voyage (voyage.samudracommerce.com/Tick-IT),
+// TickIT dipasang di path /tick-it di bawah domain Voyage (voyage.samudracommerce.com/tick-it),
 // jadi cookie `lapor_session` milik Voyage OTOMATIS ikut terkirim browser ke sini juga — satu
-// origin (host sama), cookie Path default "/" mencakup semua sub-path termasuk /Tick-IT.
+// origin (host sama), cookie Path default "/" mencakup semua sub-path termasuk /tick-it.
 //
 // Verifikasi identitasnya lewat endpoint whoami Voyage, dipanggil SERVER-KE-SERVER lewat jaringan
 // internal Coolify (Host header di-override ke voyage.samudracommerce.com), BUKAN lewat internet/
@@ -17,8 +17,18 @@
 const WHOAMI_URL = process.env.VOYAGE_WHOAMI_URL || 'http://coolify-proxy/api/v1/whoami';
 const WHOAMI_HOST = process.env.VOYAGE_WHOAMI_HOST || 'voyage.samudracommerce.com';
 const VOYAGE_PUBLIC_BASE = (process.env.VOYAGE_PUBLIC_BASE_URL || 'https://voyage.samudracommerce.com').replace(/\/$/, '');
-const SSO_PREFIX = process.env.TICKIT_SSO_PREFIX || '/Tick-IT';
 const SERVICE_KEY = process.env.TICKIT_VOYAGE_SERVICE_KEY || '';
+
+// Sama persis dgn normalizeBase() di server.js (fix Farhan, commit 551f731) — prefiks sub-path
+// dibaca dgn urutan preferensi yg sama, supaya "next=" yg kita kirim ke Voyage dan BASE yg dipakai
+// server.js buat redirect/link selalu konsisten walau dua modul beda file. Sengaja diduplikasi
+// (bukan di-import dari server.js) supaya sso.js tetap berdiri sendiri/gampang dites.
+function normalizeBase(v) {
+  const t = String(v || '').trim();
+  if (!t || t === '/') return '';
+  return '/' + t.replace(/^\/+|\/+$/g, '');
+}
+export const BASE = normalizeBase(process.env.TICKIT_BASE_PATH ?? process.env.TICKIT_SSO_PREFIX ?? '/tick-it');
 
 if (!SERVICE_KEY) {
   console.warn('[tick-it/sso] TICKIT_VOYAGE_SERVICE_KEY belum di-set — SSO Voyage tidak akan aktif ' +
@@ -56,11 +66,12 @@ export async function whoami(token) {
 
 // URL login Voyage yang mengarah balik ke path TickIT yang benar sesudah sukses. `nextPath` di
 // sini adalah path YANG SUDAH DILUCUTI prefix-nya oleh Traefik (mis. req.originalUrl di dalam
-// container = "/tickets/123"), jadi harus ditambah lagi SSO_PREFIX-nya di sini supaya Voyage
-// tahu ini harus balik ke "/Tick-IT/tickets/123", bukan ke "/tickets/123" di domain Voyage sendiri.
+// container = "/tickets/123"), jadi harus ditambah lagi BASE-nya di sini supaya Voyage tahu ini
+// harus balik ke "/tick-it/tickets/123" (yg terlihat dari luar), bukan "/tickets/123" di domain
+// Voyage sendiri.
 export function loginUrl(nextPath) {
   const clean = nextPath && nextPath.startsWith('/') ? nextPath : '/';
-  const next = SSO_PREFIX + clean;
+  const next = BASE + clean;
   return `${VOYAGE_PUBLIC_BASE}/login?next=${encodeURIComponent(next)}`;
 }
 

@@ -9,7 +9,7 @@
   .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}
   .logo{width:34px;height:34px;border-radius:6px;background:#d9a13b;display:inline-flex;align-items:center;justify-content:center}
   .brand b{font-size:18px;display:block}.brand small{color:#94a5c0;font-size:12px}
-  a.sso{display:flex;align-items:center;justify-content:center;gap:8px;height:42px;border-radius:4px;background:#d9a13b;color:#1f2732;font-weight:700;text-decoration:none}
+  a.sso{display:flex;align-items:center;justify-content:center;gap:8px;height:42px;border-radius:4px;background:#d9a13b;color:#1f2732;font-weight:700;text-decoration:none;cursor:pointer}
   a.sso:hover{background:#e6b657}
   .sep{display:flex;align-items:center;gap:10px;margin:18px 0;color:#5b6d8f;font-size:12px}
   .sep::before,.sep::after{content:"";flex:1;height:1px;background:#2a3f66}
@@ -29,7 +29,7 @@
 <div class="card">
   <div class="brand"><span class="logo"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1f2732" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><div><b>Tick-IT</b><small>Helpdesk divisi IT · Samudra Retail Indonesia</small></div></div>
 
-  <a class="sso" id="ssoBtn" href="/login/voyage">Masuk dengan Voyage</a>
+  <a class="sso" id="ssoBtn">Masuk dengan Voyage</a>
   <div class="foot"><i></i>Satu akun Voyage berlaku di semua app — TickIT, Hands, dll.</div>
 
   <div class="sep">atau</div>
@@ -45,18 +45,22 @@
   </details>
 </div>
 <script>
+  // window.__BASE__ disuntik server (lihat SHIM() di server.js) — link/redirect yang app bikin
+  // sendiri wajib pakai ini, karena Traefik memotong prefiks /tick-it sebelum sampai ke app
+  // (lihat commit 551f731). Tanpa ini tombol SSO & redirect sesudah login lokal akan nyasar ke
+  // path milik Voyage sendiri, bukan balik ke TickIT.
+  const BASE = window.__BASE__ || '';
   // Bawa ?next= yang sama ke tombol SSO, supaya sesudah login Voyage balik ke halaman yang dituju semula.
-  (function () {
-    const next = new URLSearchParams(location.search).get('next');
-    if (next) document.getElementById('ssoBtn').href = '/login/voyage?next=' + encodeURIComponent(next);
-  })();
+  const next = new URLSearchParams(location.search).get('next');
+  document.getElementById('ssoBtn').href = BASE + '/login/voyage' + (next ? '?next=' + encodeURIComponent(next) : '');
+
   const f = document.getElementById('f'), b = document.getElementById('b'), err = document.getElementById('err');
   f.addEventListener('submit', async (e) => {
     e.preventDefault(); b.disabled = true; err.textContent = '';
     try {
       const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: f.email.value, password: f.password.value }) });
       if (!r.ok) throw new Error((await r.json()).message || 'Gagal masuk.');
-      location.href = '/';
+      location.href = BASE + '/';
     } catch (x) { err.textContent = x.message; b.disabled = false; }
   });
 </script>
