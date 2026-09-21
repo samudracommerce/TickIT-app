@@ -3,6 +3,9 @@
 import { Router } from 'express';
 import { db, nextTicketId, withEvents, addEvent } from '../db.js';
 import { requireLogin, requirePerm, canSee } from '../auth.js';
+import { notifyTicketEvent } from '../lark.js';
+
+const creatorEmailOf = (t) => (t.creator_id ? db.prepare('SELECT email FROM users WHERE id=?').get(t.creator_id)?.email : null);
 
 export const TYPES = ['Feature Request', 'Issue Troubleshooting', 'Division Support Needs', 'Others'];
 const STATUS = ['awaiting', 'assigned', 'on_progress', 'hold', 'done', 'cancelled'];
@@ -41,14 +44,16 @@ r.post('/', requirePerm('create'), (req, res) => {
       .run(id, tipe, ket.trim(), nama.trim(), divisi.trim(), req.user.id, '', 'awaiting', 0, todayISO(), todayISO(), now, now);
     addEvent(id, 'created', req.user.nama, `Tiket dibuka oleh ${nama.trim()} (${divisi.trim()}) — masuk antrean divisi IT.`, now);
   })();
-  res.status(201).json(withEvents(getT.get(id)));
+  const created = getT.get(id);
+  notifyTicketEvent('created', created);
+  res.status(201).json(withEvents(created));
 });
 
 // assign engineer + target (koordinator/admin)
 r.post('/:id/assign', requirePerm('assign'), (req, res) => {
   const t = load(req, res); if (!t) return;
   const { engineer, target } = req.body || {};
-  const eng = db.prepare("SELECT nama FROM users WHERE nama=? AND active=1 AND role IN ('engineer','koordinator','admin')").get(engineer);
+  const eng = db.prepare("SELECT nama, email FROM users WHERE nama=? AND active=1 AND role IN ('engineer','koordinator','admin')").get(engineer);
   if (!eng) return res.status(400).json({ error: 'invalid', message: 'Engineer tidak valid.' });
   if (isTerminal(t)) return res.status(409).json({ error: 'terminal' });
   const end = /^\d{4}-\d{2}-\d{2}$/.test(target || '') ? target : t.end;
@@ -56,7 +61,9 @@ r.post('/:id/assign', requirePerm('assign'), (req, res) => {
     db.prepare("UPDATE tickets SET engineer=?, status='assigned', end=? WHERE id=?").run(eng.nama, end, t.id);
     addEvent(t.id, 'assigned', req.user.nama, `${actor(req)} assign ke ${eng.nama}, target ${fmtID(end)}.`);
   })();
-  res.json(withEvents(getT.get(t.id)));
+  const assigned = getT.get(t.id);
+  notifyTicketEvent('assigned', assigned, { engineerEmail: eng.email, creatorEmail: creatorEmailOf(assigned), target: end });
+  res.json(withEvents(assigned));
 });
 
 // kembalikan ke antrean
@@ -86,7 +93,9 @@ r.post('/:id/status', requirePerm('status'), (req, res) => {
     db.prepare('UPDATE tickets SET status=?, prog=? WHERE id=?').run(status, p, t.id);
     addEvent(t.id, status, req.user.nama, `${req.user.nama} ${note?.trim() ? note.trim() : defaultText}`);
   })();
-  res.json(withEvents(getT.get(t.id)));
+  const updated = getT.get(t.id);
+  if (status === 'done') notifyTicketEvent('done', updated, { creatorEmail: creatorEmailOf(updated) });
+  res.json(withEvents(updated));
 });
 
 // tutup tiket (Closed). Pemohon hanya tiket miliknya.
@@ -99,7 +108,9 @@ r.post('/:id/close', requirePerm('close'), (req, res) => {
     db.prepare("UPDATE tickets SET status='cancelled' WHERE id=?").run(t.id);
     addEvent(t.id, 'cancelled', req.user.nama, `${actor(req)} tutup tiket.${reason ? ' Alasan: ' + reason : ''}`);
   })();
-  res.json(withEvents(getT.get(t.id)));
+  const closed = getT.get(t.id);
+  notifyTicketEvent('cancelled', closed, { creatorEmail: creatorEmailOf(closed), actorLabel: actor(req) });
+  res.json(withEvents(closed));
 });
 
 export default r;
