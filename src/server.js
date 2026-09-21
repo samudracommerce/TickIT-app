@@ -1,12 +1,15 @@
 // Tick-IT — Helpdesk divisi IT. Express + SQLite, single-file frontend di /public.
 // Jalankan: npm start  ·  env: PORT, DATA_DIR, SESSION_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, SEED_DEMO
+// SSO Voyage: VOYAGE_WHOAMI_URL, VOYAGE_WHOAMI_HOST, VOYAGE_PUBLIC_BASE_URL, TICKIT_SSO_PREFIX,
+//             TICKIT_VOYAGE_SERVICE_KEY (rahasia — lihat sso.js dan .env.example)
 import express from 'express';
 import cookieSession from 'cookie-session';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { db, getRole, publicUser } from './db.js';
-import { attachUser, verifyPassword, hashPassword, requireLogin } from './auth.js';
+import { attachUser, verifyPassword, hashPassword, requireLogin, provisionFromVoyage } from './auth.js';
+import { whoami, loginUrl, readCookie } from './sso.js';
 import tickets from './routes/tickets.js';
 import { roles, users, report } from './routes/admin.js';
 
@@ -27,10 +30,38 @@ app.use(cookieSession({
 }));
 app.use(attachUser(db, getRole));
 
+// ---- SSO bridge Voyage — TickIT jalan di voyage.samudracommerce.com/Tick-IT (satu origin dgn
+// Voyage), jadi cookie lapor_session Voyage otomatis ikut kalau user sudah login di Voyage. Kalau
+// sesi lokal TickIT belum ada tapi cookie itu ada & valid (whoami sukses), provision/sinkron user
+// lokal dan anggap request ini sudah login — tanpa perlu user klik apa pun (SSO beneran, sekali klik
+// di Voyage cukup utk semua app fleet). Gagal verifikasi (tak ada cookie, Voyage down, dsb.) ->
+// diam-diam lanjut sebagai belum-login; jalur lama (redirect ke /login) tetap jadi fallback.
+app.use(async (req, res, next) => {
+  if (req.user) return next(); // sesi lokal TickIT sudah valid, tak perlu apa-apa lagi
+  const token = readCookie(req, 'lapor_session');
+  if (!token) return next();
+  try {
+    const who = await whoami(token);
+    if (who) {
+      const u = provisionFromVoyage(db, who);
+      if (u.active) {
+        req.session.uid = u.id;
+        req.user = u;
+        req.role = getRole(u.role);
+      }
+    }
+  } catch (e) {
+    console.error('[tick-it/sso] bridge error:', e);
+  }
+  next();
+});
+
 // ---- health (Coolify healthcheck)
 app.get('/healthz', (_req, res) => { db.prepare('SELECT 1').get(); res.json({ ok: true, ts: new Date().toISOString() }); });
 
 // ---- auth
+// Titik masuk SSO: arahkan browser ke halaman login Voyage, minta balik ke path TickIT semula.
+app.get('/login/voyage', (req, res) => res.redirect(loginUrl(req.query.next || '/')));
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body || {};
   const u = db.prepare('SELECT * FROM users WHERE email=? AND active=1').get(String(email || '').trim().toLowerCase());
@@ -59,7 +90,10 @@ app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: PROD ? '1h' : 0 }));
 app.get('/login', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
 app.get('*', (req, res) => {
-  if (!req.user) return res.redirect('/login');
+  // Belum login & bridge SSO di atas tak berhasil (tak ada cookie Voyage / gagal verifikasi) ->
+  // langsung ke Voyage (SSO mulus kalau user sudah login di Voyage). Halaman /login TickIT sendiri
+  // (dgn form email+password) tetap bisa diakses manual sebagai jalur cadangan kalau Voyage down.
+  if (!req.user) return res.redirect(loginUrl(req.originalUrl));
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
