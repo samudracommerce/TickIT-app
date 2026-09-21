@@ -36,7 +36,15 @@ r.get('/:id', (req, res) => { const t = load(req, res); if (t) res.json(withEven
 
 // buka tiket (Nama · Divisi · Tipe · Keterangan) → Menunggu Assign
 r.post('/', requirePerm('create'), (req, res) => {
-  const { nama, divisi, tipe, ket } = req.body || {};
+  let { nama, divisi, tipe, ket } = req.body || {};
+  // Peran ber-cakupan 'own' (Pemohon) tak boleh membuka tiket atas nama orang lain. UI memang
+  // sudah mengunci kedua field-nya, tapi kunci di UI itu hiasan — yang benar-benar mengikat
+  // adalah dua baris ini. Peran IT (cakupan 'assigned'/'all') tetap boleh membukakan tiket
+  // untuk orang lain, mis. permintaan yang masuk lewat telepon atau WA.
+  if ((req.role?.scope || 'own') === 'own') {
+    nama = req.user.nama;
+    divisi = req.user.divisi || divisi;
+  }
   if (!nama?.trim() || !divisi?.trim() || !TYPES.includes(tipe) || !ket?.trim()) return res.status(400).json({ error: 'invalid', message: 'Nama, divisi, tipe, dan keterangan wajib diisi.' });
   const now = new Date().toISOString(), id = nextTicketId();
   db.transaction(() => {

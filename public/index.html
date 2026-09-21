@@ -99,15 +99,13 @@
   .grid .two small{font-size:11px;color:var(--ink-4)}
   .grid .muted{color:var(--ink-4)}
   .grid .dim{font-size:12px;color:var(--ink-2)}
-  .addrow{display:grid;align-items:center;height:var(--row-h);font-size:13px;color:var(--ink-4);font-style:italic;cursor:pointer}
-  .addrow div{padding:0 12px}
   .empty{padding:32px;text-align:center;color:var(--ink-4)}
   .avatar-s{width:20px;height:20px;border-radius:50%;background:var(--st-assigned-bg);color:var(--st-assigned-fg);font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;flex-shrink:0}
   .avatar-s.none{background:transparent;border:1.5px dashed #3a4f78}
 
   /* timeline */
   .tl-left{width:892px;flex-shrink:0;border-right:2px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
-  .tl-left .grid,.tl-left .addrow{grid-template-columns:90px 256px 138px 112px 126px 170px}
+  .tl-left .grid{grid-template-columns:90px 256px 138px 112px 126px 170px}
   .tl-right{flex:1;overflow:auto;position:relative}
   .tl-days{display:flex;height:40px;background:var(--bg-3);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
   .tl-day{width:var(--day-w);flex-shrink:0;text-align:center;font-size:12px;font-weight:600;color:var(--ink-3);border-left:1px solid var(--line-2);display:flex;align-items:center;justify-content:center}
@@ -132,7 +130,7 @@
 
   /* grid view */
   .gv{flex:1;display:flex;flex-direction:column;overflow:auto}
-  .gv .grid,.gv .addrow{grid-template-columns:100px minmax(0,1fr) 190px 170px 160px 150px 120px 120px 120px}
+  .gv .grid{grid-template-columns:100px minmax(0,1fr) 190px 170px 160px 150px 120px 120px 120px}
 
   /* report */
   .rp{flex:1;overflow:auto;padding:20px 24px 24px;display:flex;flex-direction:column;gap:18px}
@@ -308,7 +306,6 @@
     <div class="tl-left">
       <div class="grid head"><div>ID</div><div>Tiket</div><div>Tipe</div><div>Pemohon</div><div>Engineer</div><div>Status</div></div>
       <div id="tlRows"></div>
-      <div class="addrow" data-add><div></div><div>Klik untuk tambah tiket…</div></div>
     </div>
     <div class="tl-right" id="tlRight">
       <div class="tl-days" id="tlDays"></div>
@@ -319,7 +316,6 @@
   <section class="view gv hidden" id="view-grid">
     <div class="grid head"><div>ID</div><div>Tiket</div><div>Tipe</div><div>Pemohon</div><div>Engineer</div><div>Status</div><div>Dibuka</div><div>Target</div><div>Update</div></div>
     <div id="gvRows"></div>
-    <div class="addrow" data-add><div></div><div>Klik untuk tambah tiket…</div></div>
   </section>
 
   <section class="view rp hidden" id="view-laporan">
@@ -352,11 +348,21 @@
     <div class="modal-h">Buka tiket ke divisi IT<button type="button" id="btnCloseForm" aria-label="Tutup"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a5c0" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
     <div class="modal-b">
       <p class="hint" style="margin:0">Semua tiket masuk ke antrean divisi IT dengan status <b style="color:var(--st-awaiting-fg)">Menunggu Assign</b>. Koordinator IT yang akan menentukan engineer dan target penyelesaiannya.</p>
-      <div class="f2">
-        <div class="field"><label>Nama <em>*</em></label><input name="nama" placeholder="Nama lengkap" required></div>
+      <!-- Divisi DULU, baru nama: daftar nama menyusut mengikuti divisi yang dipilih. Isinya dari
+           roster Voyage (/api/people), bukan daftar karangan. Blok manual di bawahnya hanya muncul
+           kalau roster tak bisa diambil, supaya tiket tetap bisa dibuka saat Voyage tak terjangkau.
+           Tanpa atribut name= — nilainya dibaca lewat pemohonVal() sesuai blok mana yang aktif. -->
+      <div class="f2" id="pemohonPicker">
         <div class="field"><label>Divisi <em>*</em></label>
-          <select name="divisi" required><option value="">Pilih divisi</option><option>Store Ops</option><option>Gudang</option><option>Merchandising</option><option>Finance</option><option>HR</option><option>Marketing</option><option>GA</option><option>IT</option></select></div>
+          <select id="selDivisi"><option value="">Pilih divisi</option></select></div>
+        <div class="field"><label>Nama pemohon <em>*</em></label>
+          <select id="selNama"><option value="">Pilih divisi dulu</option></select></div>
       </div>
+      <div class="f2 hidden" id="pemohonManual">
+        <div class="field"><label>Divisi <em>*</em></label><input id="inDivisi" placeholder="Divisi"></div>
+        <div class="field"><label>Nama pemohon <em>*</em></label><input id="inNama" placeholder="Nama lengkap"></div>
+      </div>
+      <p class="hint" id="pemohonHint" style="margin:-2px 0 0"></p>
       <div class="field"><label>Tipe tiket <em>*</em></label>
         <div class="types" id="types">
           <button type="button" class="type" data-type="Feature Request"><span class="radio"></span><span><b>Feature Request</b><small>Fitur / perubahan baru di sistem atau aplikasi.</small></span></button>
@@ -419,6 +425,7 @@ const API = {
   status: (id, b) => api(`/tickets/${id}/status`, { method: 'POST', body: b }),
   close: (id, b) => api(`/tickets/${id}/close`, { method: 'POST', body: b }),
   roles: () => api('/roles'),
+  people: () => api('/people'),
   putRole: (k, b) => api(`/roles/${k}`, { method: 'PUT', body: b }),
   resetRoles: () => api('/roles/reset', { method: 'POST' }),
   users: () => api('/users'),
@@ -469,8 +476,26 @@ async function loadAll(){
   CURRENT_USER = me.user; state.me = me;
   state.roles = Object.fromEntries(roles.map(r => [r.key, r]));
   state.users = users; state.tickets = tickets;
+  await loadPeople();
 }
 async function reloadTickets(){ state.tickets = await API.tickets(); }
+
+// Roster pemohon (nama + divisi dari Voyage). SENGAJA dimuat TERPISAH dari loadAll(): kalau ikut
+// Promise.all di sana, satu kegagalan roster menjatuhkan seluruh boot aplikasi — persis pola yang
+// dulu memunculkan "roles.map is not a function". Gagal di sini cukup berarti form tiket balik ke
+// isian ketik-manual.
+let people = [], meRoster = null, rosterOK = false;
+async function loadPeople(){
+  try {
+    const r = await API.people();
+    people = Array.isArray(r?.people) ? r.people : [];
+    meRoster = r?.me || null;
+    rosterOK = people.length > 0;
+  } catch { people = []; meRoster = null; rosterOK = false; }
+}
+// Cakupan 'own' = Pemohon. Selain itu orang IT, yang boleh membukakan tiket atas nama orang lain.
+// Server menegakkan aturan yang sama di POST /api/tickets — kunci di UI ini cuma kenyamanan.
+function isITStaff(){ return (currentRole().scope || 'own') !== 'own'; }
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const title = t => t.ket.split(/[.!?\n]/)[0];
@@ -498,7 +523,6 @@ function render(){
   $('.tab[data-view="laporan"]').classList.toggle('hidden', !can('report'));
   $('.tab[data-view="role"]').classList.toggle('hidden', !can('manageRoles'));
   $('#btnOpenForm').classList.toggle('hidden', !can('create'));
-  document.querySelectorAll('[data-add]').forEach(el => el.classList.toggle('hidden', !can('create')));
   $('#whoami').textContent = `${CURRENT_USER.nama} · ${currentRole().label}`;
   $('#avatar').textContent = ini(CURRENT_USER.nama);
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
@@ -867,17 +891,62 @@ function openJobCard(t){
 
 // ---------- form buka tiket ----------
 const form = $('#formTiket'); let formType = '';
-function openForm(){ form.reset(); formType = ''; form.nama.value = CURRENT_USER.nama; if (![...form.divisi.options].some(o => o.value === CURRENT_USER.divisi)) form.divisi.add(new Option(CURRENT_USER.divisi, CURRENT_USER.divisi)); form.divisi.value = CURRENT_USER.divisi; syncTypes(); validate(); $('#overlay').classList.remove('hidden'); form.nama.focus(); }
+// Nilai pemohon dibaca dari blok yang sedang aktif — dropdown roster, atau ketik-manual.
+function pemohonVal(){
+  return rosterOK ? { nama: $('#selNama').value, divisi: $('#selDivisi').value }
+                  : { nama: $('#inNama').value.trim(), divisi: $('#inDivisi').value.trim() };
+}
+function fillDivisi(){
+  const divs = [...new Set(people.map(p => p.divisi).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'id'));
+  $('#selDivisi').innerHTML = '<option value="">Pilih divisi</option>' + divs.map(d => `<option>${esc(d)}</option>`).join('');
+}
+function fillNama(){
+  const d = $('#selDivisi').value;
+  const list = people.filter(p => p.divisi === d).sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
+  $('#selNama').innerHTML = d ? '<option value="">Pilih nama</option>' + list.map(p => `<option>${esc(p.nama)}</option>`).join('')
+                              : '<option value="">Pilih divisi dulu</option>';
+}
+function openForm(){
+  form.reset(); formType = '';
+  const me = meRoster || { nama: CURRENT_USER.nama, divisi: CURRENT_USER.divisi || '' };
+  // Dikunci hanya kalau memang ADA yang bisa dikunci. Kalau roster tak mengenali orang ini dan
+  // divisinya kosong, mengunci field justru bikin dia tak bisa buka tiket sama sekali.
+  const bebas = isITStaff() || !(me.nama && me.divisi);
+  $('#pemohonPicker').classList.toggle('hidden', !rosterOK);
+  $('#pemohonManual').classList.toggle('hidden', rosterOK);
+  if (rosterOK) {
+    fillDivisi();
+    if (me.divisi && ![...$('#selDivisi').options].some(o => o.value === me.divisi)) $('#selDivisi').add(new Option(me.divisi, me.divisi));
+    $('#selDivisi').value = me.divisi || '';
+    fillNama();
+    if (me.nama && ![...$('#selNama').options].some(o => o.value === me.nama)) $('#selNama').add(new Option(me.nama, me.nama));
+    $('#selNama').value = me.nama || '';
+    $('#selDivisi').disabled = !bebas; $('#selNama').disabled = !bebas;
+  } else {
+    $('#inDivisi').value = me.divisi || ''; $('#inNama').value = me.nama || '';
+    $('#inDivisi').readOnly = !bebas; $('#inNama').readOnly = !bebas;
+  }
+  $('#pemohonHint').textContent = !rosterOK
+    ? 'Daftar karyawan Voyage sedang tak bisa diambil — isi nama & divisi manual.'
+    : (bebas ? 'Terisi otomatis dari akunmu. Ganti kalau tiket ini dibukakan untuk orang lain.'
+             : 'Diambil dari akun Voyage-mu.');
+  syncTypes(); validate();
+  $('#overlay').classList.remove('hidden');
+  form.ket.focus();
+}
 function closeForm(){ $('#overlay').classList.add('hidden'); }
 function syncTypes(){ document.querySelectorAll('.type').forEach(b => b.classList.toggle('sel', b.dataset.type === formType)); }
-function validate(){ $('#btnSubmit').disabled = !(form.nama.value.trim() && form.divisi.value && formType && form.ket.value.trim()); }
+function validate(){ const p = pemohonVal(); $('#btnSubmit').disabled = !(p.nama && p.divisi && formType && form.ket.value.trim()); }
 $('#types').addEventListener('click', e => { const b = e.target.closest('.type'); if (!b) return; formType = b.dataset.type; syncTypes(); validate(); });
 form.addEventListener('input', validate);
+form.addEventListener('change', validate);                       // <select> memancarkan change
+$('#selDivisi').onchange = () => { fillNama(); validate(); };    // divisi berubah -> nama menyusut
 form.addEventListener('submit', async e => {
   e.preventDefault(); validate(); if ($('#btnSubmit').disabled) return;
   $('#btnSubmit').disabled = true;
   try {
-    const t = await API.create({ tipe: formType, nama: form.nama.value.trim(), divisi: form.divisi.value, ket: form.ket.value.trim() });
+    const p = pemohonVal();
+    const t = await API.create({ tipe: formType, nama: p.nama, divisi: p.divisi, ket: form.ket.value.trim() });
     await reloadTickets(); state.report = {};
     closeForm(); state.statusFilter = 'all'; state.typeFilter = 'all'; $('#fStatus').value = 'all'; $('#fType').value = 'all';
     if (state.view === 'detail' || state.view === 'laporan' || state.view === 'role') state.view = 'timeline';
@@ -902,7 +971,6 @@ $('#btnPass').onclick = async () => {
 };
 document.body.addEventListener('click', e => {
   const row = e.target.closest('[data-open]'); if (row) { state.selectedId = row.dataset.open; state.view = 'detail'; render(); return; }
-  if (e.target.closest('[data-add]')) openForm();
   const tool = e.target.closest('[data-tool]'); if (tool) toast({ assign:'Pilih tiket dulu, lalu assign dari panel detail.', link:'Tautan ke tiket disalin (demo).', undo:'Undo — belum diimplementasikan.', redo:'Redo — belum diimplementasikan.', filter:'Pakai filter Status / Tipe di bawah toolbar.', zoom:'Zoom timeline — belum diimplementasikan.', save:'Perubahan tersimpan otomatis.', export:'Ekspor CSV/PDF — belum diimplementasikan.' }[tool.dataset.tool]);
 });
 

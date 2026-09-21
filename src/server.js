@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { db, getRole, publicUser } from './db.js';
 import { attachUser, verifyPassword, hashPassword, requireLogin, provisionFromVoyage } from './auth.js';
-import { whoami, loginUrl, readCookie, BASE, VOYAGE_PUBLIC_BASE } from './sso.js';
+import { whoami, loginUrl, readCookie, roster, BASE, VOYAGE_PUBLIC_BASE } from './sso.js';
 import tickets from './routes/tickets.js';
 import { roles, users, report } from './routes/admin.js';
 
@@ -93,6 +93,26 @@ app.post('/api/me/password', requireLogin, (req, res) => {
 });
 
 // ---- API
+// Daftar pemohon utk form tiket — nama & divisi dari roster Voyage (identity_export).
+// Email SENGAJA tidak ikut keluar: dipakai hanya di sini, utk mengenali baris milik orang yang
+// sedang login supaya form bisa terisi otomatis. Roster gagal/kosong bukan error — frontend
+// otomatis jatuh ke isian ketik-manual (lihat openForm() di public/index.html).
+app.get('/api/people', requireLogin, async (req, res) => {
+  const rows = await roster();
+  const email = String(req.user.email || '').trim().toLowerCase();
+  const mine = rows.find(r => r.email && r.email === email) || null;
+  // whoami Voyage tidak memulangkan departemen, jadi users.divisi milik user SSO lahir kosong.
+  // Roster tahu jawabannya — sembuhkan sekali di sini supaya tidak kosong selamanya.
+  if (mine?.divisi && !req.user.divisi) {
+    db.prepare('UPDATE users SET divisi=? WHERE id=?').run(mine.divisi, req.user.id);
+    req.user.divisi = mine.divisi;
+  }
+  res.json({
+    me: mine ? { nama: mine.nama, divisi: mine.divisi } : null,
+    people: rows.map(r => ({ nama: r.nama, divisi: r.divisi })),
+  });
+});
+
 app.use('/api/tickets', tickets);
 app.use('/api/roles', roles);
 app.use('/api/users', users);

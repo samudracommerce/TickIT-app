@@ -92,6 +92,53 @@ export async function whoami(token) {
   return data;
 }
 
+// ---- Roster Voyage (nama + divisi) ---------------------------------------------------------
+// Sumber: GET /api/v1/identity_export (identity.py) — satu baris per karyawan AKTIF, auth sama
+// dgn whoami (X-Api-Key). Dipakai utk dropdown "pemohon" di form tiket, supaya nama & divisi
+// datang dari roster perusahaan, bukan dari ketikan bebas dan daftar divisi karangan.
+//
+// Balasan Voyage memuat JAUH lebih banyak dari yang TickIT butuh (tanggal masuk, ulang tahun,
+// region, dst). Dipangkas di sini juga jadi { nama, divisi, email }, dan email TIDAK pernah ikut
+// keluar ke browser (lihat /api/people di server.js) — cuma dipakai di server utk mengenali baris
+// milik orang yang sedang login. Data pribadi yang tak dipakai tak perlu singgah.
+const ROSTER_TTL = 10 * 60 * 1000;
+let rosterCache = { at: 0, rows: null };
+
+// Kandidat URL utk sembarang path API Voyage — urutan & alasannya sama dgn WHOAMI_CANDIDATES.
+function candidatesFor(pathname) {
+  let internal = null;
+  try { const u = new URL(WHOAMI_URL); u.pathname = pathname; internal = u.toString(); } catch { /* URL aneh */ }
+  return [...new Set([internal, `${VOYAGE_PUBLIC_BASE}${pathname}`].filter(Boolean))];
+}
+
+export async function roster() {
+  if (!SERVICE_KEY) return [];
+  if (rosterCache.rows && Date.now() - rosterCache.at < ROSTER_TTL) return rosterCache.rows;
+  for (const url of candidatesFor('/api/v1/identity_export')) {
+    const headers = { 'X-Api-Key': SERVICE_KEY };
+    try { if (new URL(url).host !== WHOAMI_HOST) headers.Host = WHOAMI_HOST; } catch { /* abaikan */ }
+    try {
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) { console.warn(`[tick-it/roster] ditolak: HTTP ${res.status} dari ${url}`); continue; }
+      const body = await res.json().catch(() => null);
+      if (!Array.isArray(body)) { console.warn(`[tick-it/roster] bentuk balasan tak terduga dari ${url}`); continue; }
+      const rows = body
+        .filter(r => r?.active !== false && String(r?.name || '').trim())
+        .map(r => ({ nama: String(r.name).trim(), divisi: String(r.team || '').trim(),
+                     email: String(r.email || '').trim().toLowerCase() }));
+      rosterCache = { at: Date.now(), rows };
+      console.log(`[tick-it/roster] ${rows.length} orang dimuat dari ${url}`);
+      return rows;
+    } catch (e) {
+      console.warn(`[tick-it/roster] gagal (${url}):`, e.message);
+    }
+  }
+  // Voyage tak terjangkau. Roster lama jauh lebih berguna daripada dropdown kosong — dan form
+  // tiket tetap punya jalur ketik-manual kalau memang tak pernah ada roster sama sekali.
+  if (rosterCache.rows) { console.warn('[tick-it/roster] refresh gagal — pakai cache lama.'); return rosterCache.rows; }
+  return [];
+}
+
 // URL login Voyage yang mengarah balik ke path TickIT yang benar sesudah sukses. `nextPath` di
 // sini adalah path YANG SUDAH DILUCUTI prefix-nya oleh Traefik (mis. req.originalUrl di dalam
 // container = "/tickets/123"), jadi harus ditambah lagi BASE-nya di sini supaya Voyage tahu ini
