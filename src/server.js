@@ -3,6 +3,7 @@
 import express from 'express';
 import cookieSession from 'cookie-session';
 import path from 'node:path';
+import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { db, getRole, publicUser } from './db.js';
@@ -12,6 +13,21 @@ import { roles, users, report } from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
+
+// ── PREFIX SUB-PATH (hukum RP armada) ────────────────────────────────────────────────────
+// Tick-IT dipasang di https://voyage.samudracommerce.com/tick-it, dan Traefik (Coolify)
+// MEMOTONG prefiks itu sebelum meneruskan: app menerima "/login", bukan "/tick-it/login".
+// Yang tak ikut terpotong adalah URL yang APP INI BUAT SENDIRI — redirect dan fetch. Tanpa
+// prefiks, `res.redirect('/login')` melempar orang ke /login milik VOYAGE, dan
+// `fetch('/api/login')` menembak API Voyage (404) — jadi tombol Masuk tak pernah bekerja.
+// Dibaca dari env, TANPA cabang "kalau produksi": prefiks kosong = perilaku lama persis
+// (dev lokal di root tak berubah sama sekali).
+const BASE = normalizeBase(process.env.TICKIT_BASE_PATH ?? process.env.TICKIT_SSO_PREFIX ?? '');
+function normalizeBase(v) {
+  const t = String(v || '').trim();
+  if (!t || t === '/') return '';
+  return '/' + t.replace(/^\/+|\/+$/g, '');       // "/tick-it/" | "tick-it" -> "/tick-it"
+}
 const PROD = process.env.NODE_ENV === 'production';
 if (PROD && !process.env.SESSION_SECRET) console.warn('[tick-it] PERINGATAN: SESSION_SECRET belum di-set — semua sesi logout tiap restart.');
 
@@ -56,12 +72,28 @@ app.use('/api/report', report);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 
 // ---- frontend
+// Halaman disajikan lewat page(): satu <script> disuntikkan sebelum </head> yang membawa
+// prefiks ke sisi klien dan membungkus fetch(). Tanpa pembungkus itu tiap `fetch('/api/…')`
+// di public/*.html harus ditulis ulang satu per satu — dan yang berikutnya lupa lagi.
+const SHIM = (base) => `<script>window.__BASE__=${JSON.stringify(base)};`
+  + `(function(b){if(!b)return;var f=window.fetch.bind(window);`
+  + `window.fetch=function(u,o){if(typeof u==="string"&&u.charAt(0)==="/"&&u.indexOf(b+"/")!==0)u=b+u;return f(u,o);};})(window.__BASE__);`
+  + `</script>`;
+const pages = new Map();
+function page(nama) {
+  if (!pages.has(nama) || !PROD) {          // dev: baca ulang tiap permintaan
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', nama), 'utf8');
+    pages.set(nama, html.includes('</head>') ? html.replace('</head>', SHIM(BASE) + '</head>')
+                                             : SHIM(BASE) + html);
+  }
+  return pages.get(nama);
+}
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: PROD ? '1h' : 0 }));
-app.get('/login', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/login', (_req, res) => res.type('html').send(page('login.html')));
 app.get('*', (req, res) => {
-  if (!req.user) return res.redirect('/login');
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  if (!req.user) return res.redirect(BASE + '/login');
+  res.type('html').send(page('index.html'));
 });
 
 app.use((err, _req, res, _next) => { console.error(err); res.status(500).json({ error: 'server_error' }); });
-app.listen(PORT, '0.0.0.0', () => console.log(`[tick-it] listening on :${PORT} (${PROD ? 'production' : 'development'})`));
+app.listen(PORT, '0.0.0.0', () => console.log(`[tick-it] listening on :${PORT} (${PROD ? 'production' : 'development'})${BASE ? ` di bawah prefiks ${BASE}` : ''}`));

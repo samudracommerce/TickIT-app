@@ -34,7 +34,7 @@
     try {
       const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: f.email.value, password: f.password.value }) });
       if (!r.ok) throw new Error((await r.json()).message || 'Gagal masuk.');
-      location.href = '/';
+      location.href = (window.__BASE__ || '') + '/';
     } catch (x) { err.textContent = x.message; b.disabled = false; }
   });
 </script>

@@ -405,7 +405,7 @@ const SCOPES = { own: 'Hanya tiket yang dibuatnya', assigned: 'Tiket yang dituga
 /* ---------- API ---------- */
 async function api(path, opts = {}) {
   const r = await fetch('/api' + path, { headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
-  if (r.status === 401) { location.href = '/login'; throw new Error('Sesi habis — silakan masuk lagi.'); }
+  if (r.status === 401) { location.href = (window.__BASE__ || '') + '/login'; throw new Error('Sesi habis — silakan masuk lagi.'); }
   const data = r.status === 204 ? null : await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data?.message || ({ forbidden: 'Role kamu tidak punya hak untuk aksi ini.', not_your_ticket: 'Tiket ini belum di tangan kamu.', locked: 'Role ini terkunci.', invalid_state: 'Status tiket tidak memungkinkan aksi ini.' }[data?.error] || 'Terjadi kesalahan (' + r.status + ').'));
   return data;
@@ -894,7 +894,7 @@ document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { state.
 $('#fStatus').onchange = e => { state.statusFilter = e.target.value; render(); };
 $('#fType').onchange = e => { state.typeFilter = e.target.value; render(); };
 $('#search').oninput = e => { state.q = e.target.value; if (state.view === 'detail') state.view = 'timeline'; render(); };
-$('#btnLogout').onclick = async () => { await API.logout(); location.href = '/login'; };
+$('#btnLogout').onclick = async () => { await API.logout(); location.href = (window.__BASE__ || '') + '/login'; };
 $('#btnPass').onclick = async () => {
   const current = prompt('Password lama:'); if (current === null) return;
   const next = prompt('Password baru (min. 8 karakter):'); if (next === null) return;
