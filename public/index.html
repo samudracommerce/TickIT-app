@@ -40,6 +40,8 @@
   .hdr .link{font-size:12px;color:#7385a3;display:inline-flex;align-items:center;gap:6px}
   .hdr .link i{width:7px;height:7px;border-radius:50%;background:var(--st-done)}
   .hdr .role{height:28px;background:#1a2f56;color:#fff;border:1px solid #2a3f66;border-radius:4px;padding:0 8px;font-size:12px}
+  .hdr a.back{display:inline-flex;align-items:center;gap:6px;text-decoration:none;margin-right:4px}
+  .hdr a.back:hover{background:#223a68}
   .hdr .bell{position:relative;display:inline-flex}
   .hdr .bell b{position:absolute;top:-7px;right:-9px;background:var(--gold);color:var(--dark);font-size:10px;font-weight:700;border-radius:8px;padding:0 5px}
   .hdr .avatar{width:28px;height:28px;border-radius:50%;background:var(--dark-2);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
@@ -247,6 +249,9 @@
 
 <header class="hdr">
   <div class="brand">
+    <!-- Jalan pulang ke Voyage. href diisi skrip dari window.__VOYAGE__ (disuntik server, lihat
+         SHIM() di src/server.js) — bukan ditulis mati, supaya ikut kalau alamat Voyage pindah. -->
+    <a class="role back" id="btnVoyage" href="/" title="Kembali ke Voyage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Voyage</a>
     <span class="logo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#08112a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span>
     <span class="name">Tick-IT</span>
     <span class="sub" id="hdrSub">· Helpdesk divisi IT</span>
@@ -965,6 +970,7 @@ document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { state.
 $('#fStatus').onchange = e => { state.statusFilter = e.target.value; render(); };
 $('#fType').onchange = e => { state.typeFilter = e.target.value; render(); };
 $('#search').oninput = e => { state.q = e.target.value; if (state.view === 'detail') state.view = 'timeline'; render(); };
+$('#btnVoyage').href = window.__VOYAGE__ || '/';
 $('#btnLogout').onclick = async () => { await API.logout(); location.href = (window.__BASE__ || '') + '/login'; };
 $('#btnPass').onclick = async () => {
   const current = prompt('Password lama:'); if (current === null) return;
