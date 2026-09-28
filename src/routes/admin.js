@@ -32,7 +32,10 @@ const listStmt = db.prepare('SELECT * FROM users ORDER BY role, nama');
 users.get('/', (req, res) => {
   const all = listStmt.all().map(publicUser);
   if (req.role.perms.manageRoles) return res.json(all);
-  res.json(all.filter((u) => u.active && ['engineer', 'koordinator', 'admin'].includes(u.role)).map(({ id, nama, divisi, role }) => ({ id, nama, divisi, role })));
+  // Non-pengelola cuma butuh daftar orang yang bisa di-assign — sekarang ditentukan it_team,
+  // bukan role, supaya Admin/Koordinator yang memang orang IT ikut terbawa.
+  res.json(all.filter((u) => u.active && (u.it_team || ['engineer', 'koordinator', 'admin'].includes(u.role)))
+               .map(({ id, nama, divisi, role, it_team }) => ({ id, nama, divisi, role, it_team })));
 });
 users.post('/', requirePerm('manageRoles'), (req, res) => {
   const { email, nama, divisi, role, password } = req.body || {};

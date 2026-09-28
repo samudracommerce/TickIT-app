@@ -61,7 +61,10 @@ r.post('/', requirePerm('create'), (req, res) => {
 r.post('/:id/assign', requirePerm('assign'), (req, res) => {
   const t = load(req, res); if (!t) return;
   const { engineer, target } = req.body || {};
-  const eng = db.prepare("SELECT nama, email FROM users WHERE nama=? AND active=1 AND role IN ('engineer','koordinator','admin')").get(engineer);
+  // Boleh dibebani tiket = anggota tim IT (it_team, turunan divisi Voyage). Role lama tetap
+  // diterima sebagai jaring pengaman: kalau roster Voyage sedang tak terjangkau dan belum ada
+  // seorang pun ber-it_team, assign tak boleh ikut mati total.
+  const eng = db.prepare("SELECT nama, email FROM users WHERE nama=? AND active=1 AND (it_team=1 OR role IN ('engineer','koordinator','admin'))").get(engineer);
   if (!eng) return res.status(400).json({ error: 'invalid', message: 'Engineer tidak valid.' });
   if (isTerminal(t)) return res.status(409).json({ error: 'terminal' });
   const end = /^\d{4}-\d{2}-\d{2}$/.test(target || '') ? target : t.end;

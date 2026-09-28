@@ -37,6 +37,18 @@ CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_created ON tickets(created);
 `);
 
+// ---- MIGRASI: kolom it_team (keanggotaan tim IT, turunan dari divisi Voyage).
+// CREATE TABLE IF NOT EXISTS di atas tak menyentuh tabel yang sudah ada, jadi kolom baru harus
+// ditambahkan terpisah. Idempoten: cek dulu lewat pragma, bukan andalkan try/catch.
+// KENAPA kolom sendiri dan bukan dibaca dari `role`: role itu IZIN (apa yang boleh dilakukan),
+// it_team itu KEANGGOTAAN (boleh dibebani tiket atau tidak). Dua hal berbeda yang selama ini
+// ditumpuk jadi satu — akibatnya seorang Admin yang jelas-jelas orang IT tak pernah muncul di
+// dropdown engineer, karena dropdown-nya menyaring role==='engineer'.
+if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === 'it_team')) {
+  db.exec('ALTER TABLE users ADD COLUMN it_team INTEGER NOT NULL DEFAULT 0');
+  console.log('[tick-it/db] kolom users.it_team ditambahkan.');
+}
+
 // ---- default role & hak akses (sama dengan prototype). Pemohon hanya melihat tiket yang dibuatnya.
 export const DEFAULT_ROLES = [
   { key: 'pemohon',     label: 'Pemohon',        desc: 'Karyawan divisi lain yang membuka tiket', scope: 'own',  locked: 0, sort: 1,
@@ -100,7 +112,7 @@ if (process.env.SEED_DEMO === '1' && db.prepare('SELECT COUNT(*) c FROM tickets'
 export function rowRole(r) { return r ? { ...r, perms: JSON.parse(r.perms), locked: !!r.locked } : null; }
 export function getRoles() { return db.prepare('SELECT * FROM roles ORDER BY sort').all().map(rowRole); }
 export function getRole(key) { return rowRole(db.prepare('SELECT * FROM roles WHERE key=?').get(key)); }
-export function publicUser(u) { if (!u) return null; const { password_hash, ...rest } = u; return { ...rest, active: !!rest.active }; }
+export function publicUser(u) { if (!u) return null; const { password_hash, ...rest } = u; return { ...rest, active: !!rest.active, it_team: !!rest.it_team }; }
 export function nextTicketId() {
   const row = db.prepare("SELECT id FROM tickets ORDER BY CAST(substr(id, 4) AS INTEGER) DESC LIMIT 1").get();
   const n = row ? parseInt(row.id.slice(3), 10) + 1 : 1;

@@ -545,7 +545,9 @@ function renderFooter(){
   const c = k => mine.filter(t => t.status === k).length;
   $('#footL').textContent = `${mine.length} tiket${currentRole().scope !== 'all' ? ' (' + SCOPES[currentRole().scope].toLowerCase() + ')' : ''} · ${c('awaiting')} menunggu assign · ${c('assigned') + c('on_progress')} dikerjakan · ${c('hold')} hold · ${c('done')} done · ${c('cancelled')} closed`;
   const active = n => state.tickets.filter(t => t.engineer === n && !isTerminal(t)).length;
-  const engs = state.users.filter(u => u.role === 'engineer').map(u => u.nama);
+  // Anggota tim IT, bukan pemegang role 'engineer' — supaya Admin/Koordinator yang memang
+  // orang IT ikut terhitung. Lihat it_team di src/auth.js.
+  const engs = state.users.filter(u => u.it_team).map(u => u.nama);
   $('#footR').textContent = currentRole().scope !== 'all' || !engs.length ? '' : 'Engineer aktif: ' + engs.map(n => `${first(n)} (${active(n)})`).join(' · ');
 }
 
@@ -682,7 +684,7 @@ function renderDetail(){
   const me = CURRENT_USER.nama, term = isTerminal(t), mineToWork = t.engineer === me;
   let actions = '';
   if (can('assign') && t.status === 'awaiting') {
-    actions += `<label>Engineer IT</label><select id="actEng"><option value="">— pilih engineer —</option>${state.users.filter(u => u.role === 'engineer').map(u => `<option>${esc(u.nama)}</option>`).join('')}</select>
+    actions += `<label>Engineer IT</label><select id="actEng"><option value="">— pilih engineer —</option>${state.users.filter(u => u.it_team).map(u => `<option>${esc(u.nama)}</option>`).join('')}</select>
       <label>Target selesai</label><input type="date" id="actTarget" value="${iso(addDays(fromISO(t.start), 2))}" min="${t.start}">
       <button class="btn btn-primary btn-block" data-act="assign">Assign engineer</button>`;
   }
@@ -742,7 +744,7 @@ function renderRoles(){
     <div class="grid row" style="grid-template-columns:2fr 1.6fr 1fr 1.4fr 1.6fr 0.9fr;${u.active ? '' : 'opacity:.5'}">
       <div><span class="avatar-s">${ini(u.nama)}</span>${esc(u.nama)}${u.id === CURRENT_USER.id ? ' <span class="locked">(kamu)</span>' : ''}</div>
       <div class="dim">${esc(u.email)}</div>
-      <div>${esc(u.divisi)}</div>
+      <div>${esc(u.divisi)}${u.it_team ? ' <span class="locked" title="Divisi IT di Voyage \u2014 bisa dibebani tiket">\u00b7 tim IT</span>' : ''}</div>
       <div><select data-user="${u.id}" ${u.id === CURRENT_USER.id ? 'disabled' : ''}>${Object.entries(roles).map(([k, r]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select></div>
       <div class="dim">${SCOPES[roles[u.role]?.scope || 'own']}</div>
       <div>${u.id === CURRENT_USER.id ? '' : `<button class="btn btn-ghost" data-toggle-active="${u.id}" style="height:28px;padding:0 10px;font-size:12px">${u.active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}</div>
@@ -976,6 +978,41 @@ document.body.addEventListener('click', e => {
 
 let toastTimer;
 function toast(msg){ let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = msg; el.style.opacity = 1; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.opacity = 0, 2600); }
+
+// ---------- auto-refresh ----------
+// Tiket yang dibuka ORANG LAIN muncul sendiri di layar tim IT tanpa reload manual. (Tiket yang
+// kamu kirim sendiri sudah langsung tampil — submit memanggil reloadTickets().)
+//
+// Sengaja polling ringan, bukan SSE/WebSocket: jalurnya lewat Cloudflare + Traefik, tempat koneksi
+// panjang gampang dibuffer atau diputus diam-diam. Satu GET tiap 15 detik tak butuh apa pun dari
+// infrastruktur, dan tab yang tersembunyi tidak ikut menembak server.
+const REFRESH_MS = 15000;
+const sigOf = (list) => list.map(t => `${t.id}:${t.updated}`).join('|');
+// Re-render menulis ulang panel — kalau orangnya lagi mengisi form atau memilih engineer di panel
+// detail, ketikannya akan terhapus. Jadi putaran itu dilewati; putaran berikutnya mencoba lagi.
+function sedangMengisi(){
+  if (!$('#overlay').classList.contains('hidden')) return true;             // form Buka tiket terbuka
+  const a = document.activeElement;
+  return !!a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.id !== 'search';
+}
+let refreshing = false;
+async function autoRefresh(){
+  if (refreshing || !CURRENT_USER || document.visibilityState !== 'visible' || sedangMengisi()) return;
+  refreshing = true;
+  try {
+    const list = await API.tickets();
+    if (sigOf(list) === sigOf(state.tickets)) return;                      // tak ada yang berubah
+    const lama = new Set(state.tickets.map(t => t.id));
+    const baru = list.filter(t => !lama.has(t.id)).length;
+    state.tickets = list; state.report = {};
+    render();
+    if (baru) toast(baru === 1 ? '1 tiket baru masuk' : `${baru} tiket baru masuk`);
+  } catch { /* offline sesaat: diam saja, putaran berikutnya mencoba lagi */ }
+  finally { refreshing = false; }
+}
+setInterval(autoRefresh, REFRESH_MS);
+// Kembali ke tab ini sesudah pergi lama: segarkan saat itu juga, jangan tunggu 15 detik.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoRefresh(); });
 
 loadAll().then(render).catch(e => { if (!/Sesi habis/.test(e.message)) { document.body.insertAdjacentHTML('beforeend', `<div class="toast">${esc(e.message)}</div>`); } });
 </script>

@@ -55,6 +55,17 @@ app.use(async (req, res, next) => {
   try {
     const who = await whoami(token);
     if (who) {
+      // whoami TIDAK memulangkan divisi — isinya identitas + daftar app saja. Padahal divisi-lah
+      // yang menentukan keanggotaan tim IT, jadi diambil dari roster (identity_export) yang
+      // memang sudah di-cache 10 menit. Gagal di sini tidak fatal: provisionFromVoyage
+      // memperlakukan divisi kosong sebagai "tidak tahu" dan tak mengubah apa pun.
+      if (!who.divisi) {
+        try {
+          const rows = await roster();
+          const hit = rows.find((r) => r.email && r.email === String(who.email || '').trim().toLowerCase());
+          if (hit?.divisi) who.divisi = hit.divisi;
+        } catch (e) { console.warn('[tick-it/sso] gagal ambil divisi dari roster:', e.message); }
+      }
       const u = provisionFromVoyage(db, who);
       if (u.active) {
         req.session.uid = u.id;

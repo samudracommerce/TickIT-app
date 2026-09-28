@@ -36,9 +36,29 @@ export function attachUser(db, getRole) {
 // dilakukan lokal. nama & status aktif tetap disegarkan tiap kali supaya tidak basi.
 export function provisionFromVoyage(db, who) {
   const email = String(who.email).trim().toLowerCase();
+  const divisi = String(who.divisi || '').trim();
+  // DIVISI KOSONG = TIDAK TAHU, bukan "bukan IT". Roster Voyage bisa sedang tak terjangkau, dan
+  // menafsirkannya sebagai "bukan IT" akan mencopot seluruh tim IT dari daftar assign hanya
+  // karena satu panggilan gagal. Kalau tak tahu, jangan sentuh apa pun.
+  const divisiDiketahui = divisi.length > 0;
+  const IT_DIV = String(process.env.TICKIT_IT_DIVISION || 'IT').trim().toLowerCase();
+  const itTeam = divisiDiketahui && divisi.toLowerCase() === IT_DIV;
+
   const existing = db.prepare('SELECT * FROM users WHERE email=?').get(email);
   if (existing) {
     db.prepare('UPDATE users SET nama=?, active=1 WHERE id=?').run(who.name || existing.nama, existing.id);
+    if (divisiDiketahui) {
+      // divisi & it_team MURNI turunan Voyage: disegarkan tiap login, tak pernah diedit manual.
+      db.prepare('UPDATE users SET divisi=?, it_team=? WHERE id=?').run(divisi, itTeam ? 1 : 0, existing.id);
+      // Kenaikan SATU ARAH: orang IT yang masih 'pemohon' otomatis jadi 'engineer'. Tidak pernah
+      // menurunkan — Admin tetap Admin, Koordinator tetap Koordinator. Inilah inti pemisahannya:
+      // role mengurus IZIN, it_team mengurus KEANGGOTAAN, dan yang satu tak menimpa yang lain.
+      // Jadi Admin yang divisinya IT tetap Admin, sekaligus tetap bisa dibebani tiket.
+      if (itTeam && existing.role === 'pemohon') {
+        db.prepare("UPDATE users SET role='engineer' WHERE id=?").run(existing.id);
+        console.log(`[tick-it/sso] ${email} divisi IT — role naik dari pemohon ke engineer.`);
+      }
+    }
     return db.prepare('SELECT * FROM users WHERE id=?').get(existing.id);
   }
   const roleKeys = new Set(['pemohon', 'engineer', 'koordinator', 'admin']);
@@ -46,17 +66,17 @@ export function provisionFromVoyage(db, who) {
     ? who.apps.find(a => a?.base_path === BASE || String(a?.app || '').toLowerCase().includes('tick'))
     : null;
   const guessedRole = String(appEntry?.role || '').toLowerCase();
-  // Default aman kalau role dari Voyage tidak dikenali/kosong: 'pemohon' (hak paling rendah).
-  // Admin TickIT bisa naikkan manual lewat panel Users kalau memang perlu.
-  const role = roleKeys.has(guessedRole) ? guessedRole : 'pemohon';
+  // Urutan: grant Voyage kalau menyebut role yang dikenal -> kalau tidak, orang IT lahir sebagai
+  // 'engineer', selain itu 'pemohon' (hak paling rendah).
+  const role = roleKeys.has(guessedRole) ? guessedRole : (itTeam ? 'engineer' : 'pemohon');
   if (appEntry && !roleKeys.has(guessedRole)) {
-    console.warn(`[tick-it/sso] role Voyage "${appEntry.role}" utk ${email} tak dikenali TickIT — pakai default 'pemohon'.`);
+    console.warn(`[tick-it/sso] role Voyage "${appEntry.role}" utk ${email} tak dikenali TickIT — pakai default '${role}'.`);
   }
   // password_hash NOT NULL di skema; user SSO tak pernah pakai password ini (acak, tak pernah ditampilkan).
   const unusablePass = hashPassword(crypto.randomBytes(32).toString('hex'));
-  const info = db.prepare('INSERT INTO users (email,nama,divisi,role,password_hash) VALUES (?,?,?,?,?)')
-    .run(email, who.name || email, who.divisi || '', role, unusablePass);
-  console.log(`[tick-it/sso] user baru dari Voyage: ${email} (role=${role})`);
+  const info = db.prepare('INSERT INTO users (email,nama,divisi,role,password_hash,it_team) VALUES (?,?,?,?,?,?)')
+    .run(email, who.name || email, divisi, role, unusablePass, itTeam ? 1 : 0);
+  console.log(`[tick-it/sso] user baru dari Voyage: ${email} (role=${role}, divisi=${divisi || '?'}, tim IT=${itTeam ? 'ya' : 'tidak'})`);
   return db.prepare('SELECT * FROM users WHERE id=?').get(info.lastInsertRowid);
 }
 
