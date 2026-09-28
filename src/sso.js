@@ -14,9 +14,26 @@
 //   forward_cookie: lapor_session (dikirim lewat header Cookie di request internal ini)
 //   returns: { person_id, email, name, status, apps: [{app,label,icon,base_path,descriptor,role,source}] }
 
-const WHOAMI_URL = process.env.VOYAGE_WHOAMI_URL || 'http://coolify-proxy/api/v1/whoami';
-const WHOAMI_HOST = process.env.VOYAGE_WHOAMI_HOST || 'voyage.samudracommerce.com';
-export const VOYAGE_PUBLIC_BASE = (process.env.VOYAGE_PUBLIC_BASE_URL || 'https://voyage.samudracommerce.com').replace(/\/$/, '');
+// DEFAULT MENGIKUTI LINGKUNGAN. Dulu semua default menunjuk PRODUKSI, jadi TickIT yang dijalankan
+// lokal tanpa env Voyage diam-diam melempar orang ke login Voyage produksi, menanyai whoami
+// produksi, dan memasang prefiks /tick-it padahal lokal tak ada Traefik yang memotongnya. App
+// lokal jadi bergantung pada identitas produksi tanpa ada yang sadar — itu yang tak boleh terjadi.
+// Sekarang: di luar production, default-nya Voyage LOKAL (docker compose Voyage membuka
+// http://localhost:8000) dan TickIT jalan di root. Produksi tak berubah — Coolify toh mengisi
+// semua env ini secara eksplisit. Env yang di-set selalu menang atas default mana pun.
+const IS_PROD = process.env.NODE_ENV === 'production';
+const DEFAULTS = IS_PROD
+  ? { publicBase: 'https://voyage.samudracommerce.com', whoami: 'http://coolify-proxy/api/v1/whoami',
+      whoamiHost: 'voyage.samudracommerce.com', base: '/tick-it' }
+  : { publicBase: 'http://localhost:8000',
+      // Dari DALAM container TickIT, "localhost" adalah container itu sendiri — Voyage di host
+      // dicapai lewat host.docker.internal (Docker Desktop). Kalau TickIT dijalankan `npm start`
+      // langsung di host, kandidat cadangan (publicBase = localhost:8000) yang akan dipakai.
+      whoami: 'http://host.docker.internal:8000/api/v1/whoami',
+      whoamiHost: '', base: '' };
+const WHOAMI_URL = process.env.VOYAGE_WHOAMI_URL || DEFAULTS.whoami;
+const WHOAMI_HOST = process.env.VOYAGE_WHOAMI_HOST ?? DEFAULTS.whoamiHost;   // '' = jangan override Host
+export const VOYAGE_PUBLIC_BASE = (process.env.VOYAGE_PUBLIC_BASE_URL || DEFAULTS.publicBase).replace(/\/$/, '');
 const SERVICE_KEY = process.env.TICKIT_VOYAGE_SERVICE_KEY || '';
 
 // Kandidat endpoint whoami, DICOBA BERURUTAN. Yang pertama jalur internal Coolify: cepat, tak
@@ -37,7 +54,7 @@ function normalizeBase(v) {
   if (!t || t === '/') return '';
   return '/' + t.replace(/^\/+|\/+$/g, '');
 }
-export const BASE = normalizeBase(process.env.TICKIT_BASE_PATH ?? process.env.TICKIT_SSO_PREFIX ?? '/tick-it');
+export const BASE = normalizeBase(process.env.TICKIT_BASE_PATH ?? process.env.TICKIT_SSO_PREFIX ?? DEFAULTS.base);
 
 if (!SERVICE_KEY) {
   console.warn('[tick-it/sso] TICKIT_VOYAGE_SERVICE_KEY belum di-set — SSO Voyage tidak akan aktif ' +
@@ -59,7 +76,7 @@ export async function whoami(token) {
     const headers = { 'X-Api-Key': SERVICE_KEY, Cookie: `lapor_session=${token}` };
     // Host hanya perlu di-override kalau URL-nya BUKAN host Voyage sebenarnya (jalur internal).
     let internal = false;
-    try { internal = new URL(url).host !== WHOAMI_HOST; } catch { /* URL aneh: jangan override */ }
+    try { internal = !!WHOAMI_HOST && new URL(url).host !== WHOAMI_HOST; } catch { /* URL aneh: jangan override */ }
     if (internal) headers.Host = WHOAMI_HOST;
     try {
       const res = await fetch(url, { headers, signal: AbortSignal.timeout(3000) });
@@ -116,7 +133,7 @@ export async function roster() {
   if (rosterCache.rows && Date.now() - rosterCache.at < ROSTER_TTL) return rosterCache.rows;
   for (const url of candidatesFor('/api/v1/identity_export')) {
     const headers = { 'X-Api-Key': SERVICE_KEY };
-    try { if (new URL(url).host !== WHOAMI_HOST) headers.Host = WHOAMI_HOST; } catch { /* abaikan */ }
+    try { if (WHOAMI_HOST && new URL(url).host !== WHOAMI_HOST) headers.Host = WHOAMI_HOST; } catch { /* abaikan */ }
     try {
       const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
       if (!res.ok) { console.warn(`[tick-it/roster] ditolak: HTTP ${res.status} dari ${url}`); continue; }
