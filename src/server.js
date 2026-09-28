@@ -118,9 +118,16 @@ app.get('/api/people', requireLogin, async (req, res) => {
     db.prepare('UPDATE users SET divisi=? WHERE id=?').run(mine.divisi, req.user.id);
     req.user.divisi = mine.divisi;
   }
+  const me = mine ? { nama: mine.nama, divisi: mine.divisi } : null;
+  // Daftar LENGKAP hanya utk orang IT (cakupan selain 'own') — merekalah yang boleh membukakan tiket
+  // atas nama orang lain. Pemohon field-nya terkunci ke dirinya sendiri, jadi tak butuh (dan tak
+  // perlu melihat) nama & divisi seluruh perusahaan. Sejak TickIT dibuka ke SEMUA divisi, tanpa
+  // pembatasan ini setiap karyawan yang login bisa menarik direktori penuh lewat endpoint ini.
+  // Pemohon tetap dapat barisnya sendiri, jadi dropdown-nya tetap terisi & terkunci seperti biasa.
+  const itStaff = (req.role?.scope || 'own') !== 'own';
   res.json({
-    me: mine ? { nama: mine.nama, divisi: mine.divisi } : null,
-    people: rows.map(r => ({ nama: r.nama, divisi: r.divisi })),
+    me,
+    people: itStaff ? rows.map(r => ({ nama: r.nama, divisi: r.divisi })) : (me ? [me] : []),
   });
 });
 
